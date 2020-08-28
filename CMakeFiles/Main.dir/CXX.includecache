@@ -6,6 +6,16 @@
 
 #IncludeRegexTransform: 
 
+/Users/eugene/Desktop/Lab/job_shop/chromosome.cpp
+chromosome.h
+/Users/eugene/Desktop/Lab/job_shop/chromosome.h
+cstddef
+-
+ostream
+-
+vector
+-
+
 /Users/eugene/Desktop/Lab/job_shop/chromosome.h
 cstdlib
 -
