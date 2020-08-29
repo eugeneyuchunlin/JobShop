@@ -39,7 +39,7 @@ Chromosome::Chromosome(const Chromosome & otherChromsome){
 }
 Chromosome & Chromosome::operator=(const Chromosome & otherChromsome){
 	// free the memory
-	if(_chromosome == NULL){
+	if(_chromosome != NULL){
 		free(_chromosome);
 		_chromosome = _machine = _order = NULL;
 	}

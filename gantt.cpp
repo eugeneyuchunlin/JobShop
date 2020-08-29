@@ -9,7 +9,7 @@
 GanttChart::GanttChart(int max){
 	_chart = new cv::Mat(FRAME_HEIGHT * 3, FRAME_WIDTH * 3 + max * 5, CV_8UC3,cv::Scalar(255, 255, 255) );
 	_draw_frame(max);
-	set_machine_number(3);
+	set_machine_number(3); 
 }
 
 

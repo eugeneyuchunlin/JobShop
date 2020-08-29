@@ -1,3 +1,0 @@
-/Users/eugene/Desktop/Lab/job_shop/CMakeFiles/rebuild_cache.dir
-/Users/eugene/Desktop/Lab/job_shop/CMakeFiles/edit_cache.dir
-/Users/eugene/Desktop/Lab/job_shop/CMakeFiles/Main.dir

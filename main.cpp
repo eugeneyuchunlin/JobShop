@@ -10,7 +10,6 @@
 
 #include <map>
 #include <opencv2/videoio.hpp>
-#include <pthread/qos.h>
 #include <string>
 #include <sys/signal.h>
 #include <vector>
