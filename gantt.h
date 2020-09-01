@@ -25,7 +25,7 @@ public:
 	static std::map<std::string, cv::Scalar> COLORMAP;
 	
 	cv::Mat get_img();	
-	GanttChart(int max);
+	GanttChart(int max, int machineNumber);
 	~GanttChart();
 	void set_machine_number(int); 
 	void draw_job(int machine, int jobNumber, int timeStart, int timeEnd, cv::Scalar);

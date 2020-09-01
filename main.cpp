@@ -15,11 +15,13 @@
 #include <vector>
 #include <fstream>
 #include <ctime>
+#include <thread>
 
 #include "job.h"
 #include "chromosome.h"
 #include "machine.h"
 #include "gantt.h"
+#include "configure.h"
 
 using namespace cv;
 using namespace std;
@@ -38,8 +40,8 @@ Chromosome genetic_algorithm(
 		const double INTERCROSS_RATE,
 		const double MUTATION_RATE,
 		const double ELITIST_RATE,
-		const double RANK_SELECTION_RATE,
-		const clock_t MAXTIME
+		const clock_t MAXTIME,
+		vector<double >& record
 );
 
 void progress_bar(double progress);
@@ -52,46 +54,35 @@ vector<ChromosomeLinker> RouletteWheelSelection(vector<ChromosomeLinker> & chrom
 
 int random_int(int start, int end, int different_num=-1);
 
+void constructing(map<int, Machine> & Machines, vector<Job *> & jobs, Chromosome chromosome);
+
+vector<map<int, int> > Configure(const char * argv);
+
 
 int main(int argc, const char * argv[]) {
 
-	// usage : ./Main config.txt CHROMOSOME_AMOUNT GATIMES CROSSOVER_RATE MUTATION_RATE 
+	// usage : ./Main config.txt CHROMOSOME_AMOUNT GATIMES CROSSOVER_RATE MUTATION_RATE  ELTIST_RATE
 	
 	const int CHROMOSOME_AMOUNT = atoi(argv[2]);
-	const int GA_TIMES = atoi(argv[3]);	
+	const double GA_TIMES = atof(argv[3]);	
 	const double GA_INTERCROSS_RATE = atof(argv[4]);
 	const double GA_MUTATE_RATE = atof(argv[5]);
+	const double GA_ELITIST_RATE = atof(argv[6]);
 	
 	// Declare Objects
 	vector<Job *> Jobs;
 	map<int, Machine>Machines;
+	vector<double> record;
 	vector<Chromosome> Chromosomes;
-	clock_t t1 = clock();
+	// clock_t t1 = clock();
 	// load configuration file
 	vector<map<int, int> > configs;
-	map<int,int> *tempVector;
-	int temp;
-	int lineElementAmount;
 	srand(time(NULL));
-	FILE * file;	
-	file = fopen(argv[1], "r");
-	fscanf(file, "%d", &lineElementAmount);	
-	for(int i = 0; fscanf(file, "%d", &temp) != EOF; ++i){
-		if(i == 0)
-			tempVector = new map<int, int> ();
-
-		if(temp != -1){
-			tempVector->operator[](i) = temp;
-		}
-
-		if(i == (lineElementAmount - 1)){
-			i = -1;
-			configs.push_back(*tempVector);
-		}
-	}
+	int lineElementAmount, temp;
+	configs = Configure(argv[1], lineElementAmount);
 	const int JOB_AMOUNT = configs.size();
 	const int MACHINE_AMOUNT = lineElementAmount;
-
+	
 	// cout<<"create all instances"<<endl;
 	Chromosome temp_chromosome;
 	// Step 1. create all instances
@@ -110,13 +101,6 @@ int main(int argc, const char * argv[]) {
 	for(int i = 0; i < lineElementAmount; ++i){
 		Machines[i] = Machine(i);			
 	}
-	// Chromosomes[0].__repr__();
-	// Chromosome ch = !Chromosomes[0];
-	// cout<<"=++++++++++++++"<<endl;
-	// Chromosomes[0].__repr__();
-	// ch.__repr__();
-
-		
 
 	// start GA
 	Chromosome bestSolution;
@@ -128,9 +112,9 @@ int main(int argc, const char * argv[]) {
 			MACHINE_AMOUNT,
 			GA_INTERCROSS_RATE,
 			GA_MUTATE_RATE,
-			0.2,
-			0.8,
-			GA_TIMES * CLOCKS_PER_SEC
+			GA_ELITIST_RATE,
+			GA_TIMES * CLOCKS_PER_SEC,
+			record
 	);
 	
 	// reconstructing
@@ -158,23 +142,41 @@ int main(int argc, const char * argv[]) {
 			whichMachine = i + 1;
 		}
 	}
-	cout<<"max time = "<<maxMachineTime<<endl;
+	cout<<"makespan = "<<maxMachineTime<<endl;
 	
-	GanttChart chart(maxMachineTime); // Gantt Chart
+	GanttChart chart(maxMachineTime, MACHINE_AMOUNT); // Gantt Chart
 	for(int i = 0; i < lineElementAmount; ++i){
 		Machines[i].add_into_gantt_chart(chart);
 		// Machines[i].demo();
 		chart.set_time(i + 1, Machines[i].get_total_time());
 	}
 	
-	clock_t t2 = clock();
-	cout<< t2 - t1<<endl;
-	cout<<(double)(t2 - t1) / (double)CLOCKS_PER_SEC<<endl;
+	
+	
+	// clock_t t2 = clock();
+	// cout<< t2 - t1<<endl;
+	// cout<<(double)(t2 - t1) / (double)CLOCKS_PER_SEC<<endl;
+	
+
+	ofstream outputFile;
+	outputFile.open("outputFile.txt", ios_base::out);
+	outputFile<<"x,y"<<endl;
+	if(outputFile.is_open()){
+		for(unsigned int i = 0; i < record.size(); ++i){
+			outputFile<<i<<", "<<record[i]<<endl;			
+		}
+	}
+
+	outputFile.close();
+	cout<<record.size()<<" generations"<<endl;
+	
+	system("python3 plot.py");
 	
 	Mat mat = chart.get_img();
 	namedWindow("Gantt Chart", WINDOW_AUTOSIZE );
     imshow("Gantt Chart", mat);
 	waitKey(0);
+
 
 	return 0;
 }
@@ -218,8 +220,8 @@ Chromosome genetic_algorithm(
 		const double INTERCROSS_RATE,
 		const double MUTATION_RATE, 
 		const double ELITIST_RATE,
-		const double RANK_SELECTION_RATE,
-		const clock_t MAXTIME		
+		const clock_t MAXTIME,
+		vector<double> & record
 ){
 	int chromosomes_size = Chromosomes.size();
 	vector<ChromosomeLinker> linkers;
@@ -232,13 +234,12 @@ Chromosome genetic_algorithm(
 	clock_t startTime, time;
 	clock_t endTime = clock() + MAXTIME;
 	cout<<endl;
-	
+	//init	
 	for(int i = 0; i < chromosomes_size; ++i){
 		chromosomes_ptr[i] = Chromosomes[i];
 	}
 	
 	for(startTime = time = clock(); time < endTime; time = clock()){
-		
 		temp.clear();
 		
 		// Step 1. crossover and mutation
@@ -284,13 +285,23 @@ Chromosome genetic_algorithm(
 		
 		progress_bar(100 * ((double)(time - startTime) / (double)(endTime - startTime)));
 		sort(linkers.begin(), linkers.end(), chromosomelinker_comparator);
-		RouletteWheelSelection(linkers, childrenAmmount, chromosomes_size);
-		for(int j = 0; j < chromosomes_size; ++j){
+		
+		int ELITIST_AMOUNT = round(chromosomes_size * ELITIST_RATE);
+
+		for(int i = 0; i < ELITIST_AMOUNT; ++i){
+			chromosomes_ptr[i] = *linkers[i].linkChromosome;
+		}
+		bestSolution = chromosomes_ptr[0];
+		minTime = linkers[0].value;
+
+		linkers.erase(linkers.begin() , linkers.begin() + ELITIST_AMOUNT);
+		linkers = RouletteWheelSelection(linkers, childrenAmmount - ELITIST_AMOUNT, chromosomes_size);
+
+		for(int j = ELITIST_AMOUNT; j < chromosomes_size; ++j){
 			chromosomes_ptr[j] = *linkers[j].linkChromosome;
 		}
 
-		bestSolution = chromosomes_ptr[0];
-		minTime = linkers[0].value;
+		record.push_back((double)minTime);
 
 	}	
 
