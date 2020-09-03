@@ -5,7 +5,9 @@
 
 Chromosome::Chromosome(int size){
 	_size = size;
-	_chromosome = (double *)malloc(size * 2 * sizeof(double));
+	_chromosome = NULL;
+	_chromosome = new double[size * 2];
+	// _chromosome = (double *)malloc(size * 2 * sizeof(double));
 	_machine = _chromosome;
 	_order = _chromosome + size;
 
@@ -24,11 +26,11 @@ Chromosome::Chromosome(){
 }
 
 
-
 Chromosome::Chromosome(const Chromosome & otherChromsome){
 	// std::cout<<"size = "<<otherChromsome<<std::endl;
 	this->_size = otherChromsome._size;
-	this->_chromosome = (double *)malloc(this->_size * 2 * sizeof(double));
+	this->_chromosome = new double[this->_size * 2];
+	// this->_chromosome = (double *)malloc(this->_size * 2 * sizeof(double));
 	this->_machine = this->_chromosome;
 	this->_order = this->_chromosome + this->_size;
 	this->_chromosome_temp = otherChromsome._chromosome_temp;
@@ -39,20 +41,24 @@ Chromosome::Chromosome(const Chromosome & otherChromsome){
 }
 Chromosome & Chromosome::operator=(const Chromosome & otherChromsome){
 	// free the memory
-	if(_chromosome != NULL){
-		free(_chromosome);
+	if(otherChromsome._size != this->_size && _chromosome != NULL){
+		delete _chromosome;
 		_chromosome = _machine = _order = NULL;
+		this->_size = otherChromsome._size;
+		// this->_chromosome = new double[this->_size * 2];
 	}
-	
+
+	if(_chromosome == NULL){
+		this->_size = otherChromsome._size;
+		this->_chromosome = new double[this->_size * 2];
+		this->_machine = this->_chromosome;
+		this->_order = this->_chromosome + this->_size;
+
+	}
 
 	// copy the information
-	this->_size = otherChromsome._size;
 	this->value = otherChromsome.value;
 	this->_chromosome_temp = otherChromsome._chromosome_temp;
-	this->_chromosome = (double *)malloc(this->_size * 2 * sizeof(double));
-	this->_machine = this->_chromosome;
-	this->_order = this->_chromosome + this->_size;
-
 	for(int i = 0, size = 2 * this->_size; i < size; ++i){
 		this->_chromosome[i] = otherChromsome._chromosome[i];
 	}
@@ -111,7 +117,7 @@ Chromosome::~Chromosome(){
 	// std::cout<<this->_chromosome<<std::endl;
 	if(this->_chromosome != NULL){
 		// std::cout<<"it is freed"<<std::endl;
-		free(this->_chromosome);
+		delete this->_chromosome;
 		this->_chromosome = NULL;
 		// std::cout<<this->_chromosome<<std::endl;
 	}
@@ -129,6 +135,12 @@ ChromosomeLinker::ChromosomeLinker(){
 	link_num = 0;
 	value = 0;
 	linkChromosome = NULL;
+}
+
+ChromosomeLinker::ChromosomeLinker(int link_num, int value, Chromosome * linkChromosome){
+	this->link_num = link_num;
+	this->value = value;
+	this->linkChromosome = linkChromosome; 
 }
 
 bool chromosome_comparator(Chromosome & c1, Chromosome & c2){

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <opencv2/core/types.hpp>
 #include <opencv2/core/utility.hpp>
+#include <opencv2/ml.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -241,7 +242,8 @@ Chromosome genetic_algorithm(
 	
 	for(startTime = time = clock(); time < endTime; time = clock()){
 		temp.clear();
-		
+		linkers.clear();
+		linkers.reserve(chromosomes_size);	
 		// Step 1. crossover and mutation
 		crossover(INTERCROSS_RATE, chromosomes_ptr, chromosomes_size, temp);
 		mutation(MUTATION_RATE, chromosomes_ptr, chromosomes_size, temp);
@@ -275,10 +277,11 @@ Chromosome genetic_algorithm(
 				if(tempTime > maxTime)
 					maxTime = tempTime;
 			}
-
-			linkers[i].value = maxTime;
-			linkers[i].linkChromosome = &temp[i];
-			linkers[i].link_num = i;
+			ChromosomeLinker linkerTemp(i, maxTime, &temp[i]);
+			linkers.push_back(linkerTemp);
+			// linkers[i].value = maxTime;
+			// linkers[i].linkChromosome = &temp[i];
+			// linkers[i].link_num = i;
 			temp[i].value = maxTime;
 		}
 
@@ -293,12 +296,15 @@ Chromosome genetic_algorithm(
 		}
 		bestSolution = chromosomes_ptr[0];
 		minTime = linkers[0].value;
-
+		// cout<<"linker size = "<<linkers.size()<<endl;
 		linkers.erase(linkers.begin() , linkers.begin() + ELITIST_AMOUNT);
-		linkers = RouletteWheelSelection(linkers, childrenAmmount - ELITIST_AMOUNT, chromosomes_size);
 
-		for(int j = ELITIST_AMOUNT; j < chromosomes_size; ++j){
-			chromosomes_ptr[j] = *linkers[j].linkChromosome;
+		linkers = RouletteWheelSelection(linkers, childrenAmmount - ELITIST_AMOUNT, chromosomes_size - ELITIST_AMOUNT);
+		// cout<<"last linker size = "<<linkers.size()<<endl;
+		// cout<<"-------------------"<<endl;
+
+		for(int j = ELITIST_AMOUNT, k = 0, size = linkers.size(); j < chromosomes_size && k < size; ++j, ++k){
+			chromosomes_ptr[j] = *linkers[k].linkChromosome;
 		}
 
 		record.push_back((double)minTime);
@@ -307,6 +313,7 @@ Chromosome genetic_algorithm(
 
 
 	progress_bar(100.0);
+
 	delete [] chromosomes_ptr;
 	return bestSolution;	
 }
@@ -381,14 +388,15 @@ vector<ChromosomeLinker> RouletteWheelSelection(vector<ChromosomeLinker> &  chro
 		values[i] += values[i - 1];
 	}
 
-		
+	randomValues.reserve(nextGenerationAmount);	
 	for(int i = 0; i < nextGenerationAmount; ++i){
 		randomValues.push_back((double)rand() / (RAND_MAX + 1.0));	
 	}
 
+	nextGeneration.reserve(nextGenerationAmount);
 	for(int i = 0; i < nextGenerationAmount; ++i){
 		for(int j = 0; j < childrenAmounts; ++j){
-			if(randomValues[i] < values[j]){
+			if(randomValues[i] < values[j]){ // search
 				nextGeneration.push_back(chromosomeLinker[j]);
 				break;
 			}

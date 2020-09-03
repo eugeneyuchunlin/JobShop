@@ -15,6 +15,7 @@ public:
 	int value;
 	Chromosome * linkChromosome;
 	ChromosomeLinker();
+	ChromosomeLinker(int link_num, int value, Chromosome *);
 };
 
 class Chromosome{
