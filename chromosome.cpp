@@ -79,7 +79,7 @@ double Chromosome::getOrder(int jobNumber){
 	return _order[jobNumber];	
 }
 
-std::vector<Chromosome> Chromosome::operator*(Chromosome & chro){
+std::vector<Chromosome> Chromosome::operator*(Chromosome chro){
 	if(chro._size != this->_size)
 		throw "the chromosomes are not the same species";
 	int lower = rand() % this->_size * 2;

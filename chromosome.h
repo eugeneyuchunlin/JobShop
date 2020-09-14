@@ -34,7 +34,7 @@ public:
 	~Chromosome();
 	double getMachine(int jobNumber);
 	double getOrder(int jobNumner);
-	std::vector<Chromosome> operator*(Chromosome &); // operator * means intercross
+	std::vector<Chromosome> operator*(Chromosome ); // operator * means intercross
 	Chromosome & operator=(const Chromosome &);
 	Chromosome operator!();		
 	void __repr__();

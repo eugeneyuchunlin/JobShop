@@ -171,12 +171,13 @@ int main(int argc, const char * argv[]) {
 	outputFile.close();
 	cout<<record.size()<<" generations"<<endl;
 	
-	system("python3 plot.py");
+	system("python3 test.py");
+	// system("python3 plot.py");
 	
 	Mat mat = chart.get_img();
-	namedWindow("Gantt Chart", WINDOW_AUTOSIZE );
-    imshow("Gantt Chart", mat);
-	waitKey(0);
+	// namedWindow("Gantt Chart", WINDOW_AUTOSIZE );
+    // imshow("Gantt Chart", mat);
+	// waitKey(0);
 
 
 	return 0;
@@ -247,6 +248,7 @@ Chromosome genetic_algorithm(
 		// Step 1. crossover and mutation
 		crossover(INTERCROSS_RATE, chromosomes_ptr, chromosomes_size, temp);
 		mutation(MUTATION_RATE, chromosomes_ptr, chromosomes_size, temp);
+
 		for(int i = 0; i < chromosomes_size; ++i){
 			temp.push_back(chromosomes_ptr[i]);
 		}
@@ -279,9 +281,6 @@ Chromosome genetic_algorithm(
 			}
 			ChromosomeLinker linkerTemp(i, maxTime, &temp[i]);
 			linkers.push_back(linkerTemp);
-			// linkers[i].value = maxTime;
-			// linkers[i].linkChromosome = &temp[i];
-			// linkers[i].link_num = i;
 			temp[i].value = maxTime;
 		}
 
