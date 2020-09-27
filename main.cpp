@@ -1,3 +1,4 @@
+#include <filesystem>
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -35,7 +36,8 @@ void genetic_algorithm_initialize(
 Chromosome genetic_algorithm(
 		vector<Chromosome> & Chromosomes, 
 		vector<Job *> & Jobs, 
-		map<int, Machine> & Machines, 
+		map<string, Machine *> & mapMachines, 
+		vector<Machine *> & vectorMachines,
 		const int JOB_AMOUNT, 
 		const int MACHINE_AMOUNT,
 		const double INTERCROSS_RATE,
@@ -62,53 +64,75 @@ vector<map<int, int> > Configure(const char * argv);
 
 int main(int argc, const char * argv[]) {
 
-	// usage : ./Main config.txt CHROMOSOME_AMOUNT GATIMES CROSSOVER_RATE MUTATION_RATE  ELTIST_RATE
+	// usage : ./Main CHROMOSOME_AMOUNT GATIMES CROSSOVER_RATE MUTATION_RATE  ELTIST_RATE
 	
-	const int CHROMOSOME_AMOUNT = atoi(argv[2]);
-	const double GA_TIMES = atof(argv[3]);	
-	const double GA_INTERCROSS_RATE = atof(argv[4]);
-	const double GA_MUTATE_RATE = atof(argv[5]);
-	const double GA_ELITIST_RATE = atof(argv[6]);
+	const int CHROMOSOME_AMOUNT = atoi(argv[1]);
+	const double GA_TIMES = atof(argv[2]);	
+	const double GA_INTERCROSS_RATE = atof(argv[3]);
+	const double GA_MUTATE_RATE = atof(argv[4]);
+	const double GA_ELITIST_RATE = atof(argv[5]);
 	
-	// Declare Objects
-	vector<Job *> Jobs;
-	map<int, Machine>Machines;
+	/* Declare Objects */ 
+	vector<Job *> jobs;
+	map<std::string, Machine *> mapMachines;
+	vector<Machine *> vectorMachines;
 	vector<double> record;
 	vector<Chromosome> Chromosomes;
-	// clock_t t1 = clock();
-	// load configuration file
-	vector<map<int, int> > configs;
-	srand(time(NULL));
-	int lineElementAmount, temp;
-	configs = Configure(argv[1], lineElementAmount);
-	const int JOB_AMOUNT = configs.size();
-	const int MACHINE_AMOUNT = lineElementAmount;
+
+
+	/* Computing variables
+	 *
+	 * */
+	int i, j;
+
+
+	/* initialization
+	 * 1. load configure file
+	 * 2. assign computation environment variables : 
+	 * 		JOB_AMOUNT
+	 * 		MACHINE_AMOUNT
+	 */
+	map<string, map<string, int> >Data;
+	Data = EQP_TIME("./semiconductor-scheduling-data/EQP_RECIPE.txt");
 	
-	// cout<<"create all instances"<<endl;
+	map<string, vector<string> >Status;
+	Status = STATUS("./semiconductor-scheduling-data/Tool.txt");
+
+	vector<map<string, string> > wipData;
+	wipData = WIP("./semiconductor-scheduling-data/WIP.txt");
+
+	vector<vector<int> > setup_time;
+	setup_time = SETUP_TIME("./semiconductor-scheduling-data/Setup_time.txt");	
+
+
+	for(unsigned int i = 0; i < wipData.size(); ++i){
+		jobs.push_back(new Job(i, wipData[i], Data));
+	}
+
+	i = 0;
+	for(map<string, vector<string> >::iterator it = Status.begin(); it != Status.end(); it++, ++i){
+		mapMachines[it->first] = new Machine(i, it->first, it->second);
+		vectorMachines.push_back(mapMachines[it->first]);
+	}
+	srand(time(NULL));
+	const int JOB_AMOUNT = jobs.size();
+	const int MACHINE_AMOUNT = vectorMachines.size();
+	
 	Chromosome temp_chromosome;
-	// Step 1. create all instances
 	for(int i = 0; i < CHROMOSOME_AMOUNT; ++i){
 		temp_chromosome = Chromosome(JOB_AMOUNT);
 		Chromosomes.push_back(temp_chromosome);
 	}
 
-	// cout<<"end of create all instances"<<endl;
 
-	// create Jobs instance
-	for(unsigned int i = 0; i < configs.size(); ++i){
-		Jobs.push_back(new Job(i, configs[i]));	
-	}
 	
-	for(int i = 0; i < lineElementAmount; ++i){
-		Machines[i] = Machine(i);			
-	}
-
-	// start GA
 	Chromosome bestSolution;
+	// start GA
 	bestSolution = genetic_algorithm(
 			Chromosomes, 
-			Jobs, 
-			Machines, 
+			jobs, 
+			mapMachines, 
+			vectorMachines,
 			JOB_AMOUNT, 
 			MACHINE_AMOUNT,
 			GA_INTERCROSS_RATE,
@@ -120,24 +144,26 @@ int main(int argc, const char * argv[]) {
 	
 	// reconstructing
 	// machine clear
-	for(int j = 0; j < MACHINE_AMOUNT; ++j){
-		Machines[j].clear();
+	for(map<string, Machine*>::iterator it = mapMachines.begin(); it != mapMachines.end(); it++){
+		it->second->clear();
 	}
+
 	for(int j = 0; j < JOB_AMOUNT; ++j){
-		Jobs[j]->clear();
-		Jobs[j]->assign_machine_number(bestSolution.getMachine(Jobs[j]->get_number()));
-		Jobs[j]->assign_machine_order(bestSolution.getOrder(Jobs[j]->get_number()));
+		jobs[j]->clear();
+		jobs[j]->assign_machine_number(bestSolution.getMachine(jobs[j]->get_number()));
+		jobs[j]->assign_machine_order(bestSolution.getOrder(jobs[j]->get_number()));
 	}
 	// Step 4. Machines get the job
 	for(int j = 0; j < JOB_AMOUNT; ++j){
-		Machines[Jobs[j]->get_machine_number()].add_job(Jobs[j]);
+		mapMachines[jobs[j]->get_machine_id()]->add_job(jobs[j]);
 	}
 	
 	int maxMachineTime = 0;
 	int whichMachine;
-	for(int i = 0; i < lineElementAmount; ++i){
-		Machines[i].sort_job();
-		temp = Machines[i].get_total_time();
+	int temp;
+	for(int i = 0; i < MACHINE_AMOUNT; ++i){
+		vectorMachines[i]->sort_job();
+		temp = vectorMachines[i]->get_total_time();
 		if(temp > maxMachineTime){
 			maxMachineTime = temp;
 			whichMachine = i + 1;
@@ -146,10 +172,10 @@ int main(int argc, const char * argv[]) {
 	cout<<"makespan = "<<maxMachineTime<<endl;
 	
 	GanttChart chart(maxMachineTime, MACHINE_AMOUNT); // Gantt Chart
-	for(int i = 0; i < lineElementAmount; ++i){
-		Machines[i].add_into_gantt_chart(chart);
+	for(i = 0; i < MACHINE_AMOUNT; ++i){
+		vectorMachines[i]->add_into_gantt_chart(chart);
 		// Machines[i].demo();
-		chart.set_time(i + 1, Machines[i].get_total_time());
+		chart.set_time(i + 1, vectorMachines[i]->get_total_time());
 	}
 	
 	
@@ -175,9 +201,9 @@ int main(int argc, const char * argv[]) {
 	// system("python3 plot.py");
 	
 	Mat mat = chart.get_img();
-	// namedWindow("Gantt Chart", WINDOW_AUTOSIZE );
-    // imshow("Gantt Chart", mat);
-	// waitKey(0);
+	namedWindow("Gantt Chart", WINDOW_AUTOSIZE );
+    imshow("Gantt Chart", mat);
+	waitKey(0);
 
 
 	return 0;
@@ -213,10 +239,12 @@ void progress_bar(double progress){
 	printf("\n");
 }
 
+
 Chromosome genetic_algorithm(
 		vector<Chromosome> & Chromosomes, 
 		vector<Job *> & Jobs, 
-		map<int, Machine> & Machines, 
+		map<string, Machine *> & mapMachines, 
+		vector<Machine *> & vectorMachines,
 		const int JOB_AMOUNT,
 		const int MACHINE_AMOUNT, 
 		const double INTERCROSS_RATE,
@@ -260,7 +288,7 @@ Chromosome genetic_algorithm(
 
 			// machine clear
 			for(int j = 0; j < MACHINE_AMOUNT; ++j){
-				Machines[j].clear();
+				vectorMachines[j]->clear();
 			}
 			maxTime = 0;
 			for(int j = 0; j < JOB_AMOUNT; ++j){
@@ -270,12 +298,12 @@ Chromosome genetic_algorithm(
 			}
 			// Step 4. Machines get the job
 			for(int j = 0; j < JOB_AMOUNT; ++j){
-				Machines[Jobs[j]->get_machine_number()].add_job(Jobs[j]);
+				mapMachines[Jobs[j]->get_machine_id()]->add_job(Jobs[j]);
 			}
 
 			for(int j = 0; j < MACHINE_AMOUNT; ++j){
-				Machines[j].sort_job();
-				tempTime = Machines[j].get_total_time();
+				vectorMachines[j]->sort_job();
+				tempTime = vectorMachines[j]->get_total_time();
 				if(tempTime > maxTime)
 					maxTime = tempTime;
 			}

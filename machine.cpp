@@ -12,7 +12,17 @@ Machine::Machine(int number){
 	_totalTime = 0;
 }
 
+Machine::Machine(int number, std::string machineID, std::vector<std::string> statuses){
+	_number = number;
+	_machineID = machineID;
+	_status = statuses[0];
+	_recoverTime = std::stoi(statuses[1]);
+	generate_color_code();
+	_totalTime = 0;
+}
+
 Machine::Machine(){
+	
 	_number = 0;
 	_totalTime = 0;
 	generate_color_code();
@@ -40,7 +50,6 @@ void Machine::generate_color_code(){
 }
 
 void Machine::add_into_gantt_chart(GanttChart & gantt){
-	
 
 	for(unsigned int i = 0; i < _jobs.size(); ++i){
 		if(_colorIt != 	_colorItEnd){
@@ -63,6 +72,7 @@ void Machine::clear(){
 	_colorIt = GanttChart::COLORMAP.begin();
 	_totalTime = 0;
 }
+
 
 
 void Machine::demo(){

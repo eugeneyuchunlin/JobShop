@@ -1,0 +1,7 @@
+<Machines>
+	<Machine id="MachineID">
+		<Job id="JobID" class="normal" startTime=5 endTime=10></Job>
+		<Job id="JobID" class="normal" startTime=10 endTime=11></Job>
+		<Job class="setupTime" startTime=11 endTime=12></Job>
+	</Machine>
+</Machines>
