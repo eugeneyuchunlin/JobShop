@@ -2,6 +2,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cmath>
+#include <opencv2/core/matx.hpp>
 #include <opencv2/core/types.hpp>
 #include <opencv2/core/utility.hpp>
 #include <opencv2/ml.hpp>
@@ -44,7 +45,7 @@ Chromosome genetic_algorithm(
 		const double MUTATION_RATE,
 		const double ELITIST_RATE,
 		const clock_t MAXTIME,
-		vector<double >& record
+		map<string, vector<double> >& records
 );
 
 void progress_bar(double progress);
@@ -76,14 +77,14 @@ int main(int argc, const char * argv[]) {
 	vector<Job *> jobs;
 	map<std::string, Machine *> mapMachines;
 	vector<Machine *> vectorMachines;
-	vector<double> record;
+	map<string, vector<double> > records;
 	vector<Chromosome> Chromosomes;
 
 
 	/* Computing variables
 	 *
 	 * */
-	int i, j;
+	int i;
 
 
 	/* initialization
@@ -111,7 +112,7 @@ int main(int argc, const char * argv[]) {
 
 	i = 0;
 	for(map<string, vector<string> >::iterator it = Status.begin(); it != Status.end(); it++, ++i){
-		mapMachines[it->first] = new Machine(i, it->first, it->second);
+		mapMachines[it->first] = new Machine(i, it->first, it->second, setup_time);
 		vectorMachines.push_back(mapMachines[it->first]);
 	}
 	srand(time(NULL));
@@ -139,7 +140,7 @@ int main(int argc, const char * argv[]) {
 			GA_MUTATE_RATE,
 			GA_ELITIST_RATE,
 			GA_TIMES * CLOCKS_PER_SEC,
-			record
+			records
 	);
 	
 	// reconstructing
@@ -176,7 +177,10 @@ int main(int argc, const char * argv[]) {
 		vectorMachines[i]->add_into_gantt_chart(chart);
 		// Machines[i].demo();
 		chart.set_time(i + 1, vectorMachines[i]->get_total_time());
-	}
+	}	
+
+	for(unsigned int i = 0; i < vectorMachines.size(); ++i)
+		vectorMachines[i]->demo();
 	
 	
 	
@@ -187,17 +191,17 @@ int main(int argc, const char * argv[]) {
 
 	ofstream outputFile;
 	outputFile.open("outputFile.txt", ios_base::out);
-	outputFile<<"x,y"<<endl;
+	outputFile<<"x,quality,dead,toolate,makespan"<<endl;
 	if(outputFile.is_open()){
-		for(unsigned int i = 0; i < record.size(); ++i){
-			outputFile<<i<<", "<<record[i]<<endl;			
+		for(unsigned int i = 0; i < records["quality"].size(); ++i){
+			outputFile<<i<<", "<<records["quality"][i]<<","<<records["dead"][i]<<","<<records["toolate"][i]<<"," << records["makespan"][i]<<endl;			
 		}
 	}
 
 	outputFile.close();
-	cout<<record.size()<<" generations"<<endl;
+	cout<<records["quality"].size()<<" generations"<<endl;
 	
-	system("python3 test.py");
+	//system("python3 test.py");
 	// system("python3 plot.py");
 	
 	Mat mat = chart.get_img();
@@ -214,13 +218,15 @@ void genetic_algorithm_initialize(vector<ChromosomeLinker> &linkers, int size){
 	for(int i = 0; i < size; ++i){
 		linkers.push_back(ChromosomeLinker());
 		linkers[i].link_num = i;
-		linkers[i].value = 65535;
+		linkers[i].makespan= 65535;
+		linkers[i].deadJobs = 65535;
+		linkers[i].tooLate = 65535;
 	}
 }
 
 void progress_bar(double progress){
 	printf("\033[A");
-	printf("\r                                                                                                   ");	
+	printf("\r                                                                                                       ");	
 
 	printf("\r[");
 	for(int i = 0, max = progress - 2; i < max; i += 2){
@@ -251,7 +257,7 @@ Chromosome genetic_algorithm(
 		const double MUTATION_RATE, 
 		const double ELITIST_RATE,
 		const clock_t MAXTIME,
-		vector<double> & record
+		map<string, vector<double> > & records
 ){
 	int chromosomes_size = Chromosomes.size();
 	vector<ChromosomeLinker> linkers;
@@ -264,10 +270,17 @@ Chromosome genetic_algorithm(
 	clock_t startTime, time;
 	clock_t endTime = clock() + MAXTIME;
 	cout<<endl;
+
 	//init	
 	for(int i = 0; i < chromosomes_size; ++i){
 		chromosomes_ptr[i] = Chromosomes[i];
 	}
+
+	// init record
+	records["quality"];
+	records["dead"];
+	records["toolate"];
+	records["makespan"];
 	
 	for(startTime = time = clock(); time < endTime; time = clock()){
 		temp.clear();
@@ -283,14 +296,16 @@ Chromosome genetic_algorithm(
 
 		// Step 2. assign machine number and order
 		int childrenAmmount = temp.size();
-		int maxTime, tempTime;
+		int maxDeadJobs, tempDeadJobs, maxTooLateJobs, tempTooLateJobs;
+		double maxQuality, tempQuality, makeSpan, tempTotalTime;
 		for(int i = 0; i < childrenAmmount;  ++i){
 
 			// machine clear
 			for(int j = 0; j < MACHINE_AMOUNT; ++j){
 				vectorMachines[j]->clear();
 			}
-			maxTime = 0;
+
+			maxQuality = tempQuality = maxDeadJobs = tempDeadJobs = maxTooLateJobs = tempTooLateJobs = makeSpan = tempTotalTime = 0;
 			for(int j = 0; j < JOB_AMOUNT; ++j){
 				Jobs[j]->clear();
 				Jobs[j]->assign_machine_number(temp[i].getMachine(Jobs[j]->get_number()));
@@ -300,21 +315,36 @@ Chromosome genetic_algorithm(
 			for(int j = 0; j < JOB_AMOUNT; ++j){
 				mapMachines[Jobs[j]->get_machine_id()]->add_job(Jobs[j]);
 			}
-
+			
+			// sort and get maxDeadJobs, tooLateJobs, maxQuality
 			for(int j = 0; j < MACHINE_AMOUNT; ++j){
 				vectorMachines[j]->sort_job();
-				tempTime = vectorMachines[j]->get_total_time();
-				if(tempTime > maxTime)
-					maxTime = tempTime;
+				tempQuality = vectorMachines[j]->get_quality();
+				tempTotalTime = vectorMachines[j]->get_total_time();
+				tempDeadJobs = vectorMachines[j]->get_dead_jobs_amount();
+				tempTooLateJobs = vectorMachines[j]->get_too_late_job_amount();
+
+				if(tempQuality > maxQuality)
+					maxQuality = tempQuality;
+
+				if(tempTooLateJobs > maxTooLateJobs)
+					maxTooLateJobs = tempTooLateJobs;
+
+				if(tempDeadJobs > maxDeadJobs)
+					maxDeadJobs = tempDeadJobs;
+
+				if(tempTotalTime > makeSpan)
+					makeSpan = tempTotalTime;
+
 			}
-			ChromosomeLinker linkerTemp(i, maxTime, &temp[i]);
+			ChromosomeLinker linkerTemp(i, maxQuality, maxDeadJobs, makeSpan, maxTooLateJobs , &temp[i]);
 			linkers.push_back(linkerTemp);
-			temp[i].value = maxTime;
+			temp[i].value = maxQuality;
 		}
 
 		
 		progress_bar(100 * ((double)(time - startTime) / (double)(endTime - startTime)));
-		sort(linkers.begin(), linkers.end(), chromosomelinker_comparator);
+		sort(linkers.begin(), linkers.end(), Chromosomelinker_quality_comparator);
 		
 		int ELITIST_AMOUNT = round(chromosomes_size * ELITIST_RATE);
 
@@ -322,7 +352,7 @@ Chromosome genetic_algorithm(
 			chromosomes_ptr[i] = *linkers[i].linkChromosome;
 		}
 		bestSolution = chromosomes_ptr[0];
-		minTime = linkers[0].value;
+		minTime = linkers[0].quality;
 		// cout<<"linker size = "<<linkers.size()<<endl;
 		linkers.erase(linkers.begin() , linkers.begin() + ELITIST_AMOUNT);
 
@@ -334,7 +364,10 @@ Chromosome genetic_algorithm(
 			chromosomes_ptr[j] = *linkers[k].linkChromosome;
 		}
 
-		record.push_back((double)minTime);
+		records["quality"].push_back((double)minTime);
+		records["dead"].push_back((double)linkers[0].deadJobs);
+		records["makespan"].push_back((double)linkers[0].makespan);
+		records["toolate"].push_back((double)linkers[0].tooLate);
 
 	}	
 
@@ -398,17 +431,17 @@ vector<ChromosomeLinker> RouletteWheelSelection(vector<ChromosomeLinker> &  chro
 	double Max = 0.0;	
 
 	for(unsigned int i = 0, size = childrenAmounts; i < size; ++i){
-		if(chromosomeLinker[i].value > Max){
-			Max = chromosomeLinker[i].value;
+		if(chromosomeLinker[i].quality > Max){
+			Max = chromosomeLinker[i].quality;
 		}
 	}
 
 	for(unsigned int i = 0, size = childrenAmounts; i < size; ++i){
-		total += (Max - chromosomeLinker[i].value);
+		total += (Max - chromosomeLinker[i].quality);
 	}
 
 	for(unsigned int i = 0, size = childrenAmounts; i < size; ++i){
-		values[i] = (Max - chromosomeLinker[i].value) / total;
+		values[i] = (Max - chromosomeLinker[i].quality) / total;
 	}
 
 	for(unsigned int i = 1, size =  childrenAmounts; i < size; ++i){

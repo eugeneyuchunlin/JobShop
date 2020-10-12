@@ -250,6 +250,33 @@ job.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/job.cpp.s
 .PHONY : job.cpp.s
 
+job_base.o: job_base.cpp.o
+
+.PHONY : job_base.o
+
+# target to build an object file
+job_base.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/job_base.cpp.o
+.PHONY : job_base.cpp.o
+
+job_base.i: job_base.cpp.i
+
+.PHONY : job_base.i
+
+# target to preprocess a source file
+job_base.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/job_base.cpp.i
+.PHONY : job_base.cpp.i
+
+job_base.s: job_base.cpp.s
+
+.PHONY : job_base.s
+
+# target to generate assembly for a file
+job_base.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/job_base.cpp.s
+.PHONY : job_base.cpp.s
+
 machine.o: machine.cpp.o
 
 .PHONY : machine.o
@@ -304,6 +331,33 @@ main.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/main.cpp.s
 .PHONY : main.cpp.s
 
+setup_time_job.o: setup_time_job.cpp.o
+
+.PHONY : setup_time_job.o
+
+# target to build an object file
+setup_time_job.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/setup_time_job.cpp.o
+.PHONY : setup_time_job.cpp.o
+
+setup_time_job.i: setup_time_job.cpp.i
+
+.PHONY : setup_time_job.i
+
+# target to preprocess a source file
+setup_time_job.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/setup_time_job.cpp.i
+.PHONY : setup_time_job.cpp.i
+
+setup_time_job.s: setup_time_job.cpp.s
+
+.PHONY : setup_time_job.s
+
+# target to generate assembly for a file
+setup_time_job.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/setup_time_job.cpp.s
+.PHONY : setup_time_job.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -325,12 +379,18 @@ help:
 	@echo "... job.o"
 	@echo "... job.i"
 	@echo "... job.s"
+	@echo "... job_base.o"
+	@echo "... job_base.i"
+	@echo "... job_base.s"
 	@echo "... machine.o"
 	@echo "... machine.i"
 	@echo "... machine.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"
+	@echo "... setup_time_job.o"
+	@echo "... setup_time_job.i"
+	@echo "... setup_time_job.s"
 .PHONY : help
 
 

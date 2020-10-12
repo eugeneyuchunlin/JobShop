@@ -1,6 +1,7 @@
 #include "job.h"
+#include "job_base.h"
 
-Job::Job(int number, std::map<int, int> duration){
+Job::Job(int number, std::map<int, int> duration):Job_base(){
 	_number = number;
 	_duration = duration;
 	_startTime = -1;
@@ -13,26 +14,30 @@ Job::Job(int number, std::map<int, int> duration){
 		_machinCircle[it->first] = part;
 }
 
-Job::Job(int number, std::map<std::string, std::string> row, std::map<std::string, std::map<std::string, int> > eqp_recipe){
+Job::Job(int number, std::map<std::string, std::string> row, std::map<std::string, std::map<std::string, int> > eqp_recipe):Job_base(){
 	_jobID = row["LOT_ID"];
 	_recipe = row["RECIPE"];
+	_R_QT = std::stof(row["R_QT"]);
+	_ARRIVE_T = std::stof(row["ARRIV_T"]);
 	_startTime = -1;
 	_endTime = -1;
 	_number = number;
+	RQ_T_LEGAL = true;
+	ARRIVE_T_LEGAL = true;
 //	_machineNo = -1;
-	
+	double QTY = std::stof(row["QTY"]) / 25;
 	std::string canRunMachine = row["CANRUN_TOOL"];
 	size_t startPos = 0;
 	std::string temp;
 	do{
 		temp = canRunMachine.substr(startPos, 6);
-		_processTime[temp] = eqp_recipe[_recipe][temp];
+		_processTime[temp] = (double)eqp_recipe[_recipe][temp] * QTY;
 		startPos += 6;
 	}while(startPos != canRunMachine.length());
 
 	double split = 1.0 / (double)_processTime.size();
 	double part = split;
-	for(std::map<std::string, int>::iterator it = _processTime.begin(); it != _processTime.end(); it++, part += split){
+	for(std::map<std::string, double>::iterator it = _processTime.begin(); it != _processTime.end(); it++, part += split){
 		_machineIDCircle[it->first] = part;
 	}
 	
@@ -84,7 +89,7 @@ double Job::get_gene_order(){
 	return _gene_order;
 }
 
-int Job::get_start_time(){
+double Job::get_start_time(){
 	return _startTime;
 }
 
@@ -92,14 +97,20 @@ int Job::get_number(){
 	return _number;
 }
 
-int Job::get_end_time(){
+double Job::get_end_time(){
 	return _endTime;
 }
 
-void Job::set_start_time(int time){
+void Job::set_start_time(double time){
 	_startTime = time;
 	_endTime = _startTime + _processTime[_machineID];
 	_duration_time = _endTime - _startTime;
+	if(_startTime < _ARRIVE_T)
+		ARRIVE_T_LEGAL = false;
+
+	if(_startTime > _R_QT)
+		RQ_T_LEGAL = false;
+	
 }
 
 /*
@@ -129,5 +140,14 @@ void Job::clear(){
 	_machineID.clear();
 	_real_order = -1;
 	_gene_order = -1.0;
+	RQ_T_LEGAL = true;
+	ARRIVE_T_LEGAL = true;
+}
 
+double Job::get_arrive_time(){
+	return _ARRIVE_T;	
+}
+
+std::string Job::get_recipe(){
+	return this->_recipe;
 }

@@ -133,13 +133,16 @@ void Chromosome::__repr__(){
 
 ChromosomeLinker::ChromosomeLinker(){
 	link_num = 0;
-	value = 0;
 	linkChromosome = NULL;
+	this->deadJobs = this->makespan = this->quality = 0;
 }
 
-ChromosomeLinker::ChromosomeLinker(int link_num, int value, Chromosome * linkChromosome){
+ChromosomeLinker::ChromosomeLinker(int link_num, double quality, int deadJobs, double makespan, int toolate , Chromosome * linkChromosome){
 	this->link_num = link_num;
-	this->value = value;
+	this->quality = quality;
+	this->deadJobs = deadJobs;
+	this->makespan = makespan;
+	this->tooLate = toolate;
 	this->linkChromosome = linkChromosome; 
 }
 
@@ -147,9 +150,22 @@ bool chromosome_comparator(Chromosome & c1, Chromosome & c2){
 	return c1.value > c2.value;
 }
 
-bool chromosomelinker_comparator(ChromosomeLinker c1, ChromosomeLinker c2){
-	return c1.value < c2.value;
+bool chromosomelinker_makespan_comparator(ChromosomeLinker c1, ChromosomeLinker c2){
+	return c1.makespan < c2.makespan;
 }
+
+bool chromosomelinker_deadJobs_comparator(ChromosomeLinker c1, ChromosomeLinker c2){
+	return c1.deadJobs < c2.deadJobs;
+}
+
+bool chromosomelinker_tooLate_comparator(ChromosomeLinker c1, ChromosomeLinker c2){
+	return c1.tooLate < c2.tooLate;
+}
+
+bool Chromosomelinker_quality_comparator(ChromosomeLinker c1, ChromosomeLinker c2){
+	return c1.quality < c2.quality;
+}
+
 
 std::ostream & operator<<(std::ostream & out, const Chromosome & chromosome){
 	return out<<chromosome._size;	

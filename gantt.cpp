@@ -7,7 +7,7 @@
 
 
 GanttChart::GanttChart(int max, int machineNumber){
-	_chart = new cv::Mat(FRAME_HEIGHT, FRAME_WIDTH + max * 5, CV_8UC3,cv::Scalar(255, 255, 255) );
+	_chart = new cv::Mat(FRAME_HEIGHT * 7, FRAME_WIDTH + max * 8, CV_8UC3,cv::Scalar(255, 255, 255) );
 	_draw_frame(max);
 	set_machine_number(machineNumber); 
 }
@@ -41,10 +41,10 @@ void GanttChart::set_time(int machine, int time){
 
 void GanttChart::_draw_frame(int width){
 	// draw the chart frame
-	cv::rectangle(*_chart, cv::Rect(FRAME_START_X, FRAME_START_Y,600 * 2 + width * 7, 800 * 2), cv::Scalar(119, 119, 119), 2);	
+	cv::rectangle(*_chart, cv::Rect(FRAME_START_X, FRAME_START_Y,600 * 2 + width * 8, 800 * 5), cv::Scalar(119, 119, 119), 2);	
 	int temp = 0;
-	for(int i = FRAME_START_X + 150, length = FRAME_START_X + 150 + 7 * width; i < length; i += 140, temp += 20)
-		cv::putText(*_chart, std::to_string(temp), cv::Point(i , 2000), cv::FONT_HERSHEY_DUPLEX, 2, this->COLORMAP["black"],3, cv::LINE_8); 	
+	// for(int i = FRAME_START_X + 150, length = FRAME_START_X + 150 + 7 * width; i < length; i += 140, temp += 20)
+	//	cv::putText(*_chart, std::to_string(temp), cv::Point(i , 2000), cv::FONT_HERSHEY_DUPLEX, 2, this->COLORMAP["black"],3, cv::LINE_8); 	
 
 	/*
 	for(int i = 1200; i < 1200 + 7*width; i += 70){
@@ -61,9 +61,9 @@ cv::Mat GanttChart::get_img(){
 
 void GanttChart::set_machine_number(int number){
 	_machineNumber = number;
-	float gap = 1600.0 / (number + 1);
+	float gap = 4000.0 / (number + 1);
 
-	for(float i = FRAME_START_Y + gap; i <= 1600.0; i += gap){
+	for(float i = FRAME_START_Y + gap; i <= 4000.0; i += gap){
 		cv::line(*_chart, cv::Point(FRAME_START_X - 100, i), cv::Point(FRAME_START_X + 100, i), cv::Scalar(0, 0, 0), 2);
 		cv::putText(*_chart, "M " + std::to_string(number), cv::Point(FRAME_START_X - 400, i + 50), cv::FONT_HERSHEY_DUPLEX, 3, cv::Scalar(0, 0, 0), 10, cv::LINE_8);
 		_position_x_mapping[number] = FRAME_START_X + 150;

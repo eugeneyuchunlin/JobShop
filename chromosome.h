@@ -12,10 +12,13 @@ class Chromosome;
 class ChromosomeLinker{
 public:
 	int link_num;
-	int value;
+	double makespan;
+	double quality;
+	int deadJobs;
+	int tooLate;
 	Chromosome * linkChromosome;
 	ChromosomeLinker();
-	ChromosomeLinker(int link_num, int value, Chromosome *);
+	ChromosomeLinker(int link_num, double quality, int deadJobs, double makespan, int otolate, Chromosome *);
 };
 
 class Chromosome{
@@ -42,8 +45,10 @@ public:
 };
 
 bool chromosome_comparator(Chromosome & c1, Chromosome & c2);
-bool chromosomelinker_comparator(ChromosomeLinker c1, ChromosomeLinker c2);
-
+bool chromosomelinker_makespan_comparator(ChromosomeLinker c1, ChromosomeLinker c2);
+bool chromosomelinker_deadJobs_comparator(ChromosomeLinker c1, ChromosomeLinker c2);
+bool chromosomelinker_tooLate_comparator(ChromosomeLinker c1, ChromosomeLinker c2);
+bool Chromosomelinker_quality_comparator(ChromosomeLinker c1, ChromosomeLinker c2);
 
 std::ostream &  operator<<(std::ostream & out,const Chromosome &);
 
