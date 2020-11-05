@@ -10,6 +10,7 @@
 class Job;
 
 bool compare_job_order(Job * job1, Job * job2);
+bool compare_job_order_quality(Job * job1, Job * job2);
 
 class Job:public Job_base{
 private:
@@ -18,6 +19,10 @@ private:
 	double _gene_order;
 	double _R_QT;
 	double _ARRIVE_T;
+	double _quality;
+	double _urgent;
+
+	bool _isArrive;
 
 	int _number;
 	int _real_order;	
@@ -54,7 +59,9 @@ public:
 	int get_real_order();
 	void set_start_time(double time);
 	void clear();
+	bool is_arrive();
 	friend bool compare_job_order(Job *, Job *);
+	friend bool compare_job_order_quality(Job *, Job *);
 };
 
 #endif

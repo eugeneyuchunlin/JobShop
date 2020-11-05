@@ -1,14 +1,18 @@
 #include "machine.h"
 #include "gantt.h"
+#include "job.h"
+#include "job_base.h"
 #include "setup_time_job.h"
+#include <i386/endian.h>
+#include <opencv2/core/base.hpp>
 #include <opencv2/core/types.hpp>
 
 std::map<std::string, cv::Scalar>::iterator Machine::_colorIt = GanttChart::COLORMAP.begin();
 
 const std::map<std::string, cv::Scalar>::iterator Machine::_colorItEnd = GanttChart::COLORMAP.end();
 
-int Machine::ARRIVE_PENALTY = 1000;
-int Machine::R_QT_PENALTY = 3000;
+int Machine::ARRIVE_PENALTY = 30;
+int Machine::R_QT_PENALTY = 300;
 
 Machine::Machine(int number){
 	_number = number;
@@ -39,10 +43,9 @@ void Machine::add_job(Job * job){
 	_jobs.push_back(job);
 }
 
-void Machine::sort_job(){
-	sort(_jobs.begin(), _jobs.end(), compare_job_order);
-	int lastFinishTime = 0;
+void Machine::insert_setup_time(){
 	int job_number;
+	int lastFinishTime;
 	int setup_time;
 	Job_base * setupTimeJob;
 	std::string recipe = _jobs[0]->get_recipe();
@@ -52,31 +55,82 @@ void Machine::sort_job(){
 	_jobs[0]->set_start_time(this->_recoverTime);
 	lastFinishTime = _jobs[0]->get_end_time();
 	for(unsigned int i = 1; i < _jobs.size(); ++i){
-		_jobs[i]->assign_machine_order((int)i);
-// check the setup time and link the jobs
+		_jobs[i]->assign_machine_order(int(i));
 		setup_time = _setup_time[job_number][_jobs[i]->get_number()];
 		job_number = _jobs[i]->get_number();
-		if(setup_time == 0){
+		if(setup_time == 0){ // directly connect
 			this->_current_job->set_next(_jobs[i]);
 			_jobs[i]->set_last(this->_current_job);
 			_jobs[i]->set_start_time(lastFinishTime);
-		}else{ // insert the setup time
+		}else{ // insert the setup time;
+			
 			setupTimeJob = new SetupTimeJob(setup_time);
 			setupTimeJob->set_last(this->_current_job);
 			setupTimeJob->set_start_time(lastFinishTime);
 			this->_current_job->set_next(setupTimeJob);
 			setupTimeJob->set_next(_jobs[i]);
-			_jobs[i]->set_last(setupTimeJob);
-			_jobs[i]->set_start_time(setupTimeJob->get_end_time());
-			this->_setup_time_jobs.push_back(setupTimeJob);
+			_jobs[i]->set_last(_jobs[i]);
+			_jobs[i]->set_start_time(setupTimeJob->get_end_time());	
+			this->_setup_time_jobs.push_back(_jobs[i]);
 		}
 		this->_current_job = _jobs[i];
-		lastFinishTime = _jobs[i]->get_end_time();
+		lastFinishTime = this->_current_job->get_end_time();
 		_quality += penalty_function(_jobs[i]);
 	}
 	_totalTime = lastFinishTime;
-	_quality += _totalTime;	
+}
 
+void Machine::sort_job(bool rule){
+	if(!rule){ // follow the algorithm's rule
+		sort(_jobs.begin(), _jobs.end(), compare_job_order);
+		int lastFinishTime = 0;
+		int job_number;
+		int setup_time;
+		Job_base * setupTimeJob;
+		// std::string recipe = _jobs[0]->get_recipe();
+		// this->_jobs_start = _jobs[0];
+		// this->_current_job = _jobs[0];
+		// job_number = _jobs[0]->get_number();
+		// _jobs[0]->set_start_time(this->_recoverTime);
+		// lastFinishTime = _jobs[0]->get_end_time();
+		insert_setup_time();
+		// for(unsigned int i = 1; i < _jobs.size(); ++i){
+		// 	_jobs[i]->assign_machine_order((int)i);
+		// // check the setup time and link the jobs
+		// 	setup_time = _setup_time[job_number][_jobs[i]->get_number()];
+		// 	job_number = _jobs[i]->get_number();
+		// 	if(setup_time == 0){
+		// 		this->_current_job->set_next(_jobs[i]);
+		// 		_jobs[i]->set_last(this->_current_job);
+		// 		_jobs[i]->set_start_time(lastFinishTime);
+		// 	}else{ // insert the setup time
+		// 		setupTimeJob = new SetupTimeJob(setup_time);
+		// 		setupTimeJob->set_last(this->_current_job);
+		// 		setupTimeJob->set_start_time(lastFinishTime);
+		// 		this->_current_job->set_next(setupTimeJob);
+		// 		setupTimeJob->set_next(_jobs[i]);
+		// 		_jobs[i]->set_last(setupTimeJob);
+		// 		_jobs[i]->set_start_time(setupTimeJob->get_end_time());
+		// 		this->_setup_time_jobs.push_back(setupTimeJob);
+		// 	}
+		// 	this->_current_job = _jobs[i];
+		// 	lastFinishTime = _jobs[i]->get_end_time();
+		// 	_quality += penalty_function(_jobs[i]);
+		// }
+		// 	_totalTime = lastFinishTime;
+		_quality += _totalTime;	
+	}else{ // follow my rule
+
+		/* if job is arriving -> arrange it
+		 * 
+		 */
+		sort(_jobs.begin(), _jobs.end(), compare_job_order_quality);	
+		insert_setup_time();
+		_quality += _totalTime;
+	
+
+
+	}
 }
 
 void Machine::generate_color_code(){

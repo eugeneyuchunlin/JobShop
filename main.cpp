@@ -162,15 +162,22 @@ int main(int argc, const char * argv[]) {
 	int maxMachineTime = 0;
 	int whichMachine;
 	int temp;
+	int dead, toolate;
+	dead = toolate = 0;
 	for(int i = 0; i < MACHINE_AMOUNT; ++i){
-		vectorMachines[i]->sort_job();
+		vectorMachines[i]->sort_job(true);
 		temp = vectorMachines[i]->get_total_time();
+		dead += vectorMachines[i]->get_dead_jobs_amount();
+		toolate += vectorMachines[i]->get_too_late_job_amount();
 		if(temp > maxMachineTime){
 			maxMachineTime = temp;
 			whichMachine = i + 1;
 		}
 	}
+	cout<<"quality = "<<records["quality"].back()<<endl;
 	cout<<"makespan = "<<maxMachineTime<<endl;
+	cout<<"dead = "<<dead<<endl;
+	cout<<"toolate = "<<toolate<<endl;
 	
 	GanttChart chart(maxMachineTime, MACHINE_AMOUNT); // Gantt Chart
 	for(i = 0; i < MACHINE_AMOUNT; ++i){
@@ -178,10 +185,10 @@ int main(int argc, const char * argv[]) {
 		// Machines[i].demo();
 		chart.set_time(i + 1, vectorMachines[i]->get_total_time());
 	}	
-
+/*
 	for(unsigned int i = 0; i < vectorMachines.size(); ++i)
 		vectorMachines[i]->demo();
-	
+*/	
 	
 	
 	// clock_t t2 = clock();

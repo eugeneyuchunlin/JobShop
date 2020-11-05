@@ -34,12 +34,14 @@ private:
 	void generate_color_code();
 	std::map<std::string, int> _processTime;
 	int _quality;
+
+	void insert_setup_time();
 public:
 	Machine(int number);
 	Machine(int number, std::string machineID, std::vector<std::string> status, std::vector<std::vector<int> >setup_times);
 	Machine();
 	void add_job(Job *);
-	void sort_job();
+	void sort_job(bool rule=false);
 	void demo();
 	void clear();
 	void add_into_gantt_chart(GanttChart & gantt);

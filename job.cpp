@@ -17,13 +17,20 @@ Job::Job(int number, std::map<int, int> duration):Job_base(){
 Job::Job(int number, std::map<std::string, std::string> row, std::map<std::string, std::map<std::string, int> > eqp_recipe):Job_base(){
 	_jobID = row["LOT_ID"];
 	_recipe = row["RECIPE"];
-	_R_QT = std::stof(row["R_QT"]);
+	_R_QT = std::stof(row["R_QT"]) * 60;
 	_ARRIVE_T = std::stof(row["ARRIV_T"]);
+	if(_ARRIVE_T == 0.0){
+		_isArrive = true;
+	}else{
+		_isArrive = false;
+	}
+
 	_startTime = -1;
 	_endTime = -1;
 	_number = number;
 	RQ_T_LEGAL = true;
 	ARRIVE_T_LEGAL = true;
+	_urgent = std::stof(row["URGENT_W"]);
 //	_machineNo = -1;
 	double QTY = std::stof(row["QTY"]) / 25;
 	std::string canRunMachine = row["CANRUN_TOOL"];
@@ -69,6 +76,8 @@ void Job::assign_machine_number(double gene){
 			break;
 		}
 	}
+
+	_quality = 1.0 /( _processTime[_machineID] * _R_QT);
 	/*
 	std::cout<<"assign to machine "<<_machineNo<<std::endl;
 	std::cout<<"====================="<<std::endl;	
@@ -127,9 +136,7 @@ int Job::get_real_order(){
 	return _real_order;
 }
 
-bool compare_job_order(Job * job1, Job * job2){
-	return job1->_gene_order > job2->_gene_order;	
-}
+
 
 int Job::get_duration(){
 	return _duration_time;
@@ -150,4 +157,22 @@ double Job::get_arrive_time(){
 
 std::string Job::get_recipe(){
 	return this->_recipe;
+}
+
+bool Job::is_arrive(){
+	return _isArrive;
+}
+
+bool compare_job_order(Job * job1, Job * job2){
+	return job1->_gene_order > job2->_gene_order;	
+}
+
+bool compare_job_order_quality(Job * job1, Job * job2){
+	if((!job1->_isArrive && !job2->_isArrive) || (job1->_isArrive && job2->_isArrive)){
+		return job1->_quality > job2->_quality;
+	}else if(!job1->_isArrive && job2->_isArrive){
+		return	false;
+	}else{
+		return true;
+	}
 }
