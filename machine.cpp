@@ -3,7 +3,6 @@
 #include "job.h"
 #include "job_base.h"
 #include "setup_time_job.h"
-#include <i386/endian.h>
 #include <opencv2/core/base.hpp>
 #include <opencv2/core/types.hpp>
 
