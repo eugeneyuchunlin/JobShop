@@ -47,6 +47,7 @@ flags = [
 '-Werror',
 '-Wno-long-long',
 '-Wno-variadic-macros',
+'-Wunused-result',
 '-fexceptions',
 '-fdeclspec',
 '-fms-extensions',

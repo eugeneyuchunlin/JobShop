@@ -62,8 +62,15 @@ map<string, vector<string> > STATUS(const char * filename){
 		}
 	}
 	return Data;
+}
 
-
+vector<vector<string> > vSTATUS(const char * filename){
+	map<string, vector<string> > Data = STATUS(filename);
+	vector<vector<string> > vData;
+	for(map<string, vector<string> >::iterator it = Data.begin(); it != Data.end(); it++){
+		vData.push_back(it->second);
+	}
+	return vData;
 }
 
 

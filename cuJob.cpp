@@ -1,4 +1,67 @@
 #include "cuJob.h"
+#include <cstdlib>
+#include <iostream>
+
+scuJob * createScuJob(
+		int number, 
+		std::map<std::string, std::string> row,
+		std::map<std::string, std::map<std::string, int > > eqp_recipe
+){
+	scuJob * job = (scuJob *)malloc(sizeof(scuJob));
+	std::string recipe = row["RECIPE"];
+	std::string can_run_tools = row["CANRUN_TOOL"];
+	double qty = std::stof(row["QTY"]) / 25.0;
+	job->number = number;
+	std::string lotId = row["LOT_ID"];	
+	// job->job_id = row["LOT_ID"];
+	job->ms_gene = nullptr;
+	job->os_gene = nullptr;
+	job->sizeof_can_run_tools = 0;
+	job->capacityof_can_run_tools = 20;
+	job->can_run_tools = (unsigned int *)malloc(job->capacityof_can_run_tools * sizeof(unsigned int));
+	
+	job->capacityof_process_time = 10;
+	job->process_time = (double *)malloc(job->capacityof_process_time*sizeof(double));
+	
+	
+	size_t startPos = 0;
+	std::string temp;
+	unsigned int i = 0,
+				 j = 0;
+	do{
+		temp = can_run_tools.substr(startPos, 6);
+		job->can_run_tools[i] = std::stoi(&temp[3]);
+		job->process_time[j] = (double)eqp_recipe[recipe][temp] * qty;
+		++i;
+		++j;
+		if(i >= job->capacityof_can_run_tools){
+			realloc(job->can_run_tools, 20*sizeof(unsigned int) + job->capacityof_process_time*sizeof(unsigned int));	
+		}
+
+		if(j >= job->capacityof_process_time){
+			realloc(job->process_time, 20*sizeof(double) + job->capacityof_process_time*sizeof(double));
+		}
+		startPos += 6;
+	}while(startPos != can_run_tools.length());
+
+	job->sizeof_can_run_tools = i;
+	job->sizeof_process_time = j;
+	job->splitValue = 0;
+
+	return job;
+
+}
+
+struct scuJob * shared_clone(scuJob * src){
+	scuJob * njob = (scuJob *)malloc(sizeof(scuJob));
+	njob->number = src->number;
+	njob->sizeof_can_run_tools = src->sizeof_can_run_tools;
+	njob->sizeof_process_time = src->sizeof_process_time;
+	njob->start_time = njob->end_time = 0;
+	njob->splitValue = 0;
+	return njob;
+}
+
 
 cuJob::cuJob(){
 	

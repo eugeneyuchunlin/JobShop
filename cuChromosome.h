@@ -6,6 +6,22 @@
 #include <stdio.h>
 #include "cuJob.h"
 
+
+
+struct scuChromosome{
+	unsigned int number;
+	double * genes;
+	double * dev_genes;
+	double * machineSelectionGenes; 
+	double * arrangementGenes;
+	unsigned int size;
+};
+
+scuChromosome * createScuChromosome(
+	unsigned int number,
+	unsigned int NUMOF_JOBS
+);
+
 class cuChromosome{
 private:
 	double * _genes;

@@ -16,11 +16,18 @@ __global__ void pointer(struct test * testStructs, double * gene_array, int size
 	}
 }
 
+__global__ void test2(int N){
+
+	int index = threadIdx.x;
+	printf("index = %d\n", index);
+	printf("CUDA said: hello world");
+}
+
 
 __global__ void testing(struct test *testStructs, int size){
-	int index = threadIdx.x;
 	// int index =	threadIdx.x + blockIdx.x * blockDim.x;
-	// printf("index = %d\n", index);
+	int index = threadIdx.x;
+	printf("index = %d\n", index);
 	// printf("gene = %d\n", testStructs[index].gene);
 	if(index < size){
 		for(int i = 0; i < 10; ++i){
@@ -81,6 +88,7 @@ int main(int argc, char const * argv[]){
 	cudaMalloc((void**)&dev_gene_array, sizeof(double)*10);
 	cudaMemcpy(dev_gene_array, gene_array,sizeof(double)*10, cudaMemcpyHostToDevice);
 
+	test2<<<1, structSize>>>(5);	
 	pointer<<<1, structSize>>>(dev_tests, dev_gene_array, structSize);
 	
 	testing<<<1, structSize>>>(dev_tests, structSize);
@@ -93,5 +101,4 @@ int main(int argc, char const * argv[]){
 		printf("%.3f\n", stests[i].test_OS_gene);
 	}
 
-	
 }

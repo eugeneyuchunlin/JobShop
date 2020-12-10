@@ -5,6 +5,34 @@
 #include <vector>
 #include "job_base.h"
 
+struct scuJob{
+	double * ms_gene;
+	double * os_gene;
+	double * process_time; // shared clone
+	double start_time;
+	double end_time;
+	double splitValue;
+	unsigned int machine_id;
+	double machine_process_time;
+	unsigned int * can_run_tools; // shared clone
+	unsigned int number; // clone
+	unsigned int sizeof_can_run_tools; // clone
+	unsigned int capacityof_can_run_tools; // clone
+
+	unsigned int sizeof_process_time; // clone
+	unsigned int capacityof_process_time; // clone
+
+	std::string job_id;
+};
+
+scuJob * createScuJob(
+		int, 
+		std::map<std::string, std::string>, 
+		std::map<std::string,  std::map<std::string, int> >
+);
+
+scuJob * shared_clone(scuJob *);
+
 class cuJob;
 class cuChromosome;
 

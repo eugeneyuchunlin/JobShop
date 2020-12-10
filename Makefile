@@ -204,6 +204,33 @@ cuJob.cpp.s:
 	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/cuJob.cpp.s
 .PHONY : cuJob.cpp.s
 
+cuMachine.o: cuMachine.cpp.o
+
+.PHONY : cuMachine.o
+
+# target to build an object file
+cuMachine.cpp.o:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/cuMachine.cpp.o
+.PHONY : cuMachine.cpp.o
+
+cuMachine.i: cuMachine.cpp.i
+
+.PHONY : cuMachine.i
+
+# target to preprocess a source file
+cuMachine.cpp.i:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/cuMachine.cpp.i
+.PHONY : cuMachine.cpp.i
+
+cuMachine.s: cuMachine.cpp.s
+
+.PHONY : cuMachine.s
+
+# target to generate assembly for a file
+cuMachine.cpp.s:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/cuMachine.cpp.s
+.PHONY : cuMachine.cpp.s
+
 cumain.o: cumain.cu.o
 
 .PHONY : cumain.o
@@ -276,6 +303,9 @@ help:
 	@echo "... cuJob.o"
 	@echo "... cuJob.i"
 	@echo "... cuJob.s"
+	@echo "... cuMachine.o"
+	@echo "... cuMachine.i"
+	@echo "... cuMachine.s"
 	@echo "... cumain.o"
 	@echo "... cumain.i"
 	@echo "... cumain.s"

@@ -1,6 +1,23 @@
 #include "cuChromosome.h"
 #include "cuJob.h"
 #include <cstdlib>
+#include <new>
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+
+scuChromosome * createScuChromosome(unsigned int number, unsigned int NUMOF_JOBS){
+	scuChromosome * chr = (scuChromosome *)malloc(sizeof(scuChromosome));
+	chr->number = number;
+	chr->size = NUMOF_JOBS *2;
+	chr->genes = (double *)malloc(sizeof(double)*NUMOF_JOBS*2);
+	double * genes;
+	cudaMalloc((void **)&genes, sizeof(double)*NUMOF_JOBS*2);
+	chr->dev_genes = genes;
+	return chr;
+}
+
+
 
 cuChromosome::cuChromosome(std::vector<cuJob *> jobs){
 	this->_size = jobs.size();
