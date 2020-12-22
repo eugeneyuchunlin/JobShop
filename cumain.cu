@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <initializer_list>
 #include <iostream>
 #include <locale>
@@ -7,18 +8,23 @@
 #include <strings.h>
 #include <vector>
 #include <ctime>
-#include "cuJob.h"
-#include "cuMachine.h"
-#include "cuChromosome.h"
-#include "configure.h"
+
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <curand.h>
 #include <curand_kernel.h>
 #include <math.h>
+#include <time.h>
 #include <assert.h>
 
-#define TEST
+#include "cuJob.h"
+#include "cuMachine.h"
+#include "cuChromosome.h"
+#include "configure.h"
+#include "unit_test.h"
+
+// #define TEST
+
 
 using namespace std;
  
@@ -36,6 +42,7 @@ using namespace std;
  *  @param nusigned int numof_jobs
  *  @param unsigned int *** canRun_tools is a pointer of 2-D unsigned int array
  *  @param double *** process_time
+ *  @param vector<map<string, string> > rows
  *
  *  @return scuJob *** jobs
  */
@@ -82,12 +89,14 @@ scuJob ***createJobs(
 scuChromosome ** createChromosomes(
 		unsigned int NUMOF_CHROMOSOMES,
 		unsigned int NUMOF_JOBS,
-		double *** genes_array
+		double *** genes_dev_array,
+		double *** genes_host_array
 ){
 	scuChromosome ** chrs = (scuChromosome **)malloc(sizeof(scuChromosome *) * NUMOF_CHROMOSOMES);
 	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
 		chrs[i] = createScuChromosome(i, NUMOF_JOBS);
-		genes_array[0][i] = chrs[i]->dev_genes;
+		genes_dev_array[0][i] = chrs[i]->dev_genes;
+		genes_host_array[0][i] = chrs[i]->genes;
 	}
 	return chrs;
 }
@@ -177,20 +186,34 @@ __global__ void machine_selection_kernel(scuJob ** jobs, unsigned int NUMOF_JOBS
 	}
 }
 
-__global__ void machine_selection_part2_kernel(scuJob ** jobs, scuMachine ** machines,unsigned int NUMOF_JOBS, unsigned int NUMOF_MACHINES, unsigned int NUMOF_CHROMOSOMES){
+__global__ void machine_selection_part2_kernel(scuJob ** jobs, scuMachine ** machines, unsigned int NUMOF_JOBS, unsigned int NUMOF_MACHINES, unsigned int NUMOF_CHROMOSOMES){
+	unsigned int index = 0;
 	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
-	unsigned int index = 0;
+	
 	if(x < NUMOF_CHROMOSOMES && y < NUMOF_MACHINES){
-		machines[x][y].job_size = 0;
-		for(unsigned int i = 0; i < NUMOF_JOBS; ++i){
+		// for(unsigned int i = 0; i < machines[x][y].job_size; ++i){
+		// 	machines[x][y].job_id_list[i] = machines[x][y].job_lists[i]->number;
+		// }
+		for(int i = 0; i < NUMOF_JOBS; ++i){
 			if(machines[x][y].number == jobs[x][i].machine_id){
-				machines[x][y].job_lists[index] = &jobs[x][i];
+				machines[x][y].job_lists[index] = &(jobs[x][i]);
 				++index;
 			}
 		}
 		machines[x][y].job_size = index;
 	}
+	// if(x < NUMOF_CHROMOSOMES && y < NUMOF_MACHINES){
+	// 	machines[x][y].job_size = 0;
+	// 	for(unsigned int i = 0; i < NUMOF_JOBS; ++i){
+	// 		if(machines[x][y].number == jobs[x][i].machine_id){
+	// 			machines[x][y].job_lists[index] = &jobs[x][i];
+	// 			++index;
+	// 		}
+	// 	}
+	// 	machines[x][y].job_size = 2;
+	// 	// printf("index = %d\n", index);
+	// }
 }
 
 __global__ void machine_set_job_list_id(scuMachine ** machines, unsigned int NUMOF_MACHINES, unsigned int NUMOF_CHROMOSOMES){
@@ -202,6 +225,164 @@ __global__ void machine_set_job_list_id(scuMachine ** machines, unsigned int NUM
 			machines[x][y].job_id_list[i] = machines[x][y].job_lists[i]->number;
 		}
 	}
+}
+
+
+__global__ void machine_sort_the_jobs(scuMachine ** machines, unsigned int NUMOF_MACHINES, unsigned int NUMOF_CHROMOSOMES){
+	unsigned int x = blockIdx.x * blockDim.x + threadIdx.x;
+	unsigned int y = blockIdx.y * blockDim.y + threadIdx.y;
+	scuJob ** jobList;
+	scuJob * temp;
+	int size;
+	int i, j;
+	if(x < NUMOF_CHROMOSOMES && y < NUMOF_MACHINES){
+		jobList = machines[x][y].job_lists;
+		size = machines[x][y].job_size;
+
+		for(i = 0; i < size - 1; ++i){
+			for(j = 0; j < size - 1; ++j){
+				if(*(jobList[j]->os_gene) < *(jobList[j + 1]->os_gene)){ // swap 
+					temp = jobList[j];
+					jobList[j] = jobList[j + 1];
+					jobList[j + 1] = temp;
+				}
+			}
+		}
+	}	
+}
+
+int random_int(int start, int end, int different_num){
+	if(different_num < 0){
+		return start + rand() % (end - start);
+	}else{
+		int rnd = start + (rand() % (end - start));
+
+		while(rnd == different_num){
+			rnd = start + (rand() % (end + start));
+		}
+		return rnd;
+	}
+}
+
+float random(unsigned int end){
+	return (float)rand()/((float)RAND_MAX/end);
+}
+
+void copy_chromosome_content_from_device_to_host(double ** dev_genes, double ** host_genes,unsigned int NUMOF_JOBS, unsigned int NUMOF_CHROMOSOMES){
+	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i)
+		cudaMemcpy(host_genes[i], dev_genes[i], sizeof(double)*NUMOF_JOBS*2, cudaMemcpyDeviceToHost);
+}
+
+void copy_chromosome_content_from_host_to_device(double ** dev_genes, double ** host_genes,unsigned int NUMOF_JOBS, unsigned int NUMOF_CHROMOSOMES){
+	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i)
+		cudaMemcpy(dev_genes[i], host_genes[i], sizeof(double)*NUMOF_JOBS*2, cudaMemcpyHostToDevice);
+}
+
+
+void crossover_kernel(scuChromosome * c1, scuChromosome * c1Child, scuChromosome * c2, scuChromosome * c2Child){
+	memcpy(c1Child->genes, c1->genes, sizeof(double)*c1->size);
+	memcpy(c2Child->genes, c2->genes, sizeof(double)*c2->size);
+	unsigned int cut1, cut2, temp;
+	cut1 = random_int(0, c1->size, -1);
+	cut2 = random_int(0, c2->size, cut1);
+	
+	if(cut1 < cut2){
+		temp = cut1;
+		cut1 = cut2;
+		cut2 = temp;
+	}
+	temp = cut1 - cut2;
+
+	memcpy(c1Child->genes + cut1, c2->genes + cut1, sizeof(double)*(temp));
+	memcpy(c2Child->genes + cut1, c1->genes + cut1, sizeof(double)*(temp)); 
+}
+
+unsigned int crossover(scuChromosome ** chromosomes, unsigned int AMOUNT, unsigned int START, unsigned int NUMOF_CHROMOSOMES){
+	scuChromosome * c1, * c2;
+	unsigned int m, n;
+	unsigned int index = START;
+	for(unsigned int i = 0; i < AMOUNT; i+=2){
+		m = random_int(0, NUMOF_CHROMOSOMES, -1);
+		n = random_int(0, NUMOF_CHROMOSOMES, m);
+		c1 = chromosomes[m];
+		c2 = chromosomes[n];
+		crossover_kernel(c1, chromosomes[index], c2, chromosomes[index + 1]);	
+		index += 2;
+	}
+	return START + AMOUNT;
+}
+
+void mutation_kernel(scuChromosome * c, scuChromosome * child){
+	unsigned int point = random_int(0, c->size, -1);
+	memcpy(child->genes, c->genes, sizeof(double)*c->size);
+	child->genes[point] = random(1);
+}
+
+unsigned int mutation(scuChromosome ** chromosomes, unsigned int AMOUNT, unsigned int START, unsigned int NUMOF_CHROMOSOMES){
+	unsigned int index = START;
+	unsigned int m;
+	for(unsigned int i = 0; i < AMOUNT; ++i){
+		m = random_int(0, NUMOF_CHROMOSOMES, -1);
+		mutation_kernel(chromosomes[m], chromosomes[index]);
+		++index;
+	}
+	return START + AMOUNT;
+}
+
+void initialize_crossover_vectors(
+		unsigned int ** parent1,
+		unsigned int ** parent2,
+		unsigned int ** cutpoints,
+		unsigned int ** size,
+		unsigned int PARENT_SIZE
+){
+	*parent1 = (unsigned int*)malloc(sizeof(unsigned int)*PARENT_SIZE);
+	*parent2 = (unsigned int *)malloc(sizeof(unsigned int)*PARENT_SIZE);
+	*cutpoints = (unsigned int*)malloc(sizeof(unsigned int)*PARENT_SIZE);
+	*size = (unsigned int*)malloc(sizeof(unsigned int)*PARENT_SIZE);
+}
+
+void initialize_dev_crossover_vectors(
+		unsigned int ** parent1,
+		unsigned int ** parent2,
+		unsigned int ** cutpoints,
+		unsigned int ** size,
+		unsigned int PARENT_SIZE
+){
+	size_t mem_size = sizeof(unsigned int)*PARENT_SIZE;		
+	cudaMalloc((void**)&parent1, mem_size);
+	cudaMalloc((void**)&parent2, mem_size);
+	cudaMalloc((void**)&cutpoints, mem_size);
+	cudaMalloc((void**)&size, mem_size);
+}
+
+void generate_crossover_vectors(
+		unsigned int *parent1,
+		unsigned int *parent2,
+		unsigned int *cut,
+		unsigned int *size,
+		unsigned int NUMOF_CHROMOSOMES,
+		unsigned int AMOUNT
+){
+	unsigned int m, n;
+	unsigned int cut1, cut2, temp;
+	for(unsigned int i = 0; i < AMOUNT; ++i){
+		m = random_int(0, NUMOF_CHROMOSOMES, -1);
+		n = random_int(0, NUMOF_CHROMOSOMES, m);
+		parent1[i] = m;
+		parent2[i] = n;
+		
+		cut1 = random_int(0, NUMOF_CHROMOSOMES, -1);
+		cut2 = random_int(0, NUMOF_CHROMOSOMES, cut1);
+		if(cut1 < cut2){
+			temp = cut1;
+			cut1 = cut2;
+			cut2 = temp;
+		}
+		cut[i] = cut2;
+		size[i] = cut1 - cut2;
+	}	
+
 }
 
 
@@ -222,18 +403,20 @@ int main(int argc, const char * argv[]){
 	setup_time = SETUP_TIME("./semiconductor-scheduling-data/Setup_time.txt");
 	
 		
-	unsigned int NUMOF_CHROMOSOMES = 10;
-	unsigned int NUMOF_JOBS = wipData.size();
-	unsigned int NUMOF_MACHINES = Status.size();
+	const unsigned int NUMOF_CHROMOSOMES = atoi(argv[1]);
+	const unsigned int MAX_NUMOF_CHROMOSOMES =  2 * NUMOF_CHROMOSOMES;
+	const unsigned int NUMOF_JOBS = wipData.size();
+	const unsigned int NUMOF_MACHINES = Status.size();
 
 	unsigned int ** CAN_RUN_TOOLS = (unsigned int**)malloc(sizeof(unsigned *) * NUMOF_JOBS);
 	double ** PROCESS_TIME = (double **)malloc(sizeof(double *) * NUMOF_JOBS);
-	double ** CHROMOSOMES_2D_ARRAY_POINTER = (double **)malloc(sizeof(double *)*NUMOF_CHROMOSOMES);
-	unsigned int *** JOB_ID_LIST = (unsigned int ***)malloc(sizeof(unsigned int **) * NUMOF_CHROMOSOMES);
+	double ** CHROMOSOMES_2D_DEV_ARRAY_POINTER = (double **)malloc(sizeof(double *)*MAX_NUMOF_CHROMOSOMES);
+	double ** CHROMOSOMES_2D_HOST_ARRAY_POINTER = (double **)malloc(sizeof(double *)*MAX_NUMOF_CHROMOSOMES);
+	unsigned int *** JOB_ID_LIST = (unsigned int ***)malloc(sizeof(unsigned int **) * MAX_NUMOF_CHROMOSOMES);
 
 
 	scuJob *** jobs = createJobs(
-			NUMOF_CHROMOSOMES, 
+			MAX_NUMOF_CHROMOSOMES, 
 			NUMOF_JOBS, 
 			&CAN_RUN_TOOLS,
 			&PROCESS_TIME,
@@ -244,7 +427,7 @@ int main(int argc, const char * argv[]){
 
 	
 	scuMachine *** machines = create_machines(
-			NUMOF_CHROMOSOMES,
+			MAX_NUMOF_CHROMOSOMES,
 			NUMOF_MACHINES,
 			NUMOF_JOBS,
 			&JOB_ID_LIST,
@@ -252,9 +435,10 @@ int main(int argc, const char * argv[]){
 	);
 
 	scuChromosome ** chromosomes = createChromosomes(
-			NUMOF_CHROMOSOMES,
+			MAX_NUMOF_CHROMOSOMES,
 			NUMOF_JOBS,
-			&CHROMOSOMES_2D_ARRAY_POINTER
+			&CHROMOSOMES_2D_DEV_ARRAY_POINTER,
+			&CHROMOSOMES_2D_HOST_ARRAY_POINTER
 	);
 
 	// binding CAN_RUN_TOOLS and PROCESS_TIME
@@ -286,47 +470,16 @@ int main(int argc, const char * argv[]){
 	}
 
 #ifdef TEST	
-	double * dev_test_double_temp;
-	double * double_array;
-	for(unsigned int i = 0; i < NUMOF_JOBS; ++i){
-		// copy back
-		size = sizeof(double )*jobs[0][i]->sizeof_process_time;
-		double_array = (double*)malloc(size);
-		cudaMemcpy(&dev_test_double_temp, &(DEV_PROCESS_TIME[i]), sizeof(double *), cudaMemcpyDeviceToHost);
-		cudaMemcpy(double_array, dev_test_double_temp, size, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0; j < jobs[0][i]->sizeof_process_time; ++j){
-			printf("%.3f ", double_array[j]);
-		}
-		printf("\n");
-		free(double_array);
-	}
-	
-	unsigned int *dev_test_uint_temp;
-	unsigned int *uint_array; 
-	for(unsigned int i = 0; i < NUMOF_JOBS; ++i){
-		// copy back 
-		size = sizeof(unsigned int)*jobs[0][i]->sizeof_can_run_tools;
-		uint_array = (unsigned int *)malloc(size);
-		cudaMemcpy(&dev_test_uint_temp, &(DEV_CAN_RUN_TOOLS[i]), sizeof(int *), cudaMemcpyDeviceToHost);
-		cudaMemcpy(uint_array, dev_test_uint_temp,size, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0; j < jobs[0][i]->sizeof_can_run_tools; ++j){
-			printf("%d ", uint_array[j]);
-		}
-		printf("\n");
-		free(uint_array);
-	}
+	if(test_can_run_tools_successfully_copy(CAN_RUN_TOOLS, DEV_CAN_RUN_TOOLS, jobs, NUMOF_JOBS)) printf("pass test can run tools successfully copy !\n");
+	if(test_process_time_successfully_copy(PROCESS_TIME, DEV_PROCESS_TIME, jobs, NUMOF_JOBS)) printf("pass test process time successfully copy !\n");
 #endif
 
 
-
 	/** Copy job to cuda Memory **/
-	
 	scuJob ** dev_jobs;
 	scuJob *dev_jobs_row;
-
-	cudaMalloc((void**)&dev_jobs, NUMOF_CHROMOSOMES * sizeof(scuJob **));
-	
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
+	cudaMalloc((void**)&dev_jobs, MAX_NUMOF_CHROMOSOMES * sizeof(scuJob **));
+	for(unsigned int i = 0; i < MAX_NUMOF_CHROMOSOMES; ++i){
 		cudaMalloc((void **)&dev_jobs_row, sizeof(scuJob)*NUMOF_JOBS);
 		for(unsigned int j = 0; j < NUMOF_JOBS; ++j){
 			cudaMemcpy(&(dev_jobs_row[j]), jobs[i][j], sizeof(scuJob), cudaMemcpyHostToDevice);
@@ -335,27 +488,19 @@ int main(int argc, const char * argv[]){
 	}
 
 #ifdef TEST	
-	// scuJob dev_test_row_jobs[NUMOF_JOBS];
-	scuJob *dev_test_row_jobs = (scuJob *)malloc(sizeof(scuJob)*NUMOF_JOBS);
-	scuJob * dev_row_pointer;
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
-		cudaMemcpy(&dev_row_pointer, &dev_jobs[i], sizeof(scuJob *), cudaMemcpyDeviceToHost);	
-		cudaMemcpy(dev_test_row_jobs, dev_row_pointer,sizeof(scuJob) * NUMOF_JOBS, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0; j < NUMOF_JOBS; ++j){
-			cout<<dev_test_row_jobs[j].number<<" ";
-		}
-		cout<<endl;
-	}
+	test_job_successfully_copy(jobs, dev_jobs, MAX_NUMOF_CHROMOSOMES, NUMOF_JOBS);	
 #endif
-
 	//*******************End of copying Jobs**************************//
 	
+
+
 	/** Copy Machine from host to device **/
 	scuMachine ** dev_machines;
 	scuMachine * dev_machines_row;
 
-	cudaMalloc((void**)&dev_machines, NUMOF_CHROMOSOMES * sizeof(scuMachine **));
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
+	cudaMalloc((void**)&dev_machines, sizeof(scuMachine **)*MAX_NUMOF_CHROMOSOMES);
+
+	for(unsigned int i = 0; i < MAX_NUMOF_CHROMOSOMES; ++i){
 		cudaMalloc((void**)&dev_machines_row, sizeof(scuMachine)*NUMOF_MACHINES);
 		for(unsigned int j = 0; j < NUMOF_MACHINES; ++j){
 			cudaMemcpy(&(dev_machines_row[j]), machines[i][j], sizeof(scuMachine), cudaMemcpyHostToDevice);
@@ -364,92 +509,84 @@ int main(int argc, const char * argv[]){
 	}
 
 #ifdef TEST
-	scuMachine dev_test_row_machins[NUMOF_MACHINES];
-	scuMachine * dev_machine_row_pointer;
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
-		cudaMemcpy(&dev_machine_row_pointer, &dev_machines[i], sizeof(scuMachine *), cudaMemcpyDeviceToHost);
-		cudaMemcpy(dev_test_row_machins, dev_machine_row_pointer, sizeof(scuMachine) * NUMOF_MACHINES, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0;j < NUMOF_MACHINES; ++j){
-			cout<<dev_test_row_machins[j].number<<" ";	
-		}
-		cout<<endl;
-	}	
+	if(test_machines_successfully_copy(machines, dev_machines, NUMOF_MACHINES, MAX_NUMOF_CHROMOSOMES)) printf("pass test machines successfully copied!\n");
+	else exit(-1);
 #endif
-
 	/********************End of copying Machines*******************/
-
 	
+
+
 	/** Copy Chromosomes **/
 	scuChromosome *dev_chromosomes;
 	double ** DEV_CHROMOSOMES_2D_ARRAY_POINTER;
-	cudaMalloc((void **)&DEV_CHROMOSOMES_2D_ARRAY_POINTER, sizeof(double *)*NUMOF_CHROMOSOMES);
-	cudaMemcpy(DEV_CHROMOSOMES_2D_ARRAY_POINTER, CHROMOSOMES_2D_ARRAY_POINTER, sizeof(double *) * NUMOF_CHROMOSOMES, cudaMemcpyHostToDevice);
-	cudaMalloc((void **)&dev_chromosomes, NUMOF_CHROMOSOMES * sizeof(scuChromosome));
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
+	cudaMalloc((void **)&DEV_CHROMOSOMES_2D_ARRAY_POINTER, sizeof(double *)*MAX_NUMOF_CHROMOSOMES);
+	cudaMemcpy(DEV_CHROMOSOMES_2D_ARRAY_POINTER, CHROMOSOMES_2D_DEV_ARRAY_POINTER, sizeof(double *) * MAX_NUMOF_CHROMOSOMES, cudaMemcpyHostToDevice);
+	cudaMalloc((void **)&dev_chromosomes, MAX_NUMOF_CHROMOSOMES * sizeof(scuChromosome));
+	for(unsigned int i = 0; i < MAX_NUMOF_CHROMOSOMES; ++i){
 		cudaMemcpy(&dev_chromosomes[i], chromosomes[i], sizeof(scuChromosome), cudaMemcpyHostToDevice);
 	}
 	
 	// init chromosome
 	curandState * d_state;
 	cudaMalloc(&d_state, sizeof(curandState));
-	setup_kernel<<<1, NUMOF_CHROMOSOMES>>>(d_state);
-	chromosome_initialize_kernel<<<1, NUMOF_CHROMOSOMES>>>(dev_chromosomes, d_state);
+	setup_kernel<<<1, MAX_NUMOF_CHROMOSOMES>>>(d_state);
+	chromosome_initialize_kernel<<<MAX_NUMOF_CHROMOSOMES / 20, 20>>>(dev_chromosomes, d_state);
 
-#ifndef TEST
+#ifdef TEST
+	test_chromosome_initialize(dev_chromosomes, NUMOF_JOBS, MAX_NUMOF_CHROMOSOMES);
+	test_copying_genes(dev_chromosomes, CHROMOSOMES_2D_DEV_ARRAY_POINTER, CHROMOSOMES_2D_HOST_ARRAY_POINTER, NUMOF_JOBS, MAX_NUMOF_CHROMOSOMES);
+
+#endif
 	
-	double ** test_array = (double **)malloc(sizeof(double *)*NUMOF_CHROMOSOMES);
-	cudaMemcpy(test_array, DEV_CHROMOSOMES_2D_ARRAY_POINTER, sizeof(double *) * NUMOF_CHROMOSOMES, cudaMemcpyDeviceToHost);
-	double * test_gene = (double *)malloc(sizeof(double) * NUMOF_JOBS*2);
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
-		cudaMemcpy(test_gene, test_array[i], sizeof(double)*NUMOF_JOBS*2, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0; j < NUMOF_JOBS * 2; ++j){
-			printf("%.3f\n", test_gene[j]);
-		}
-		printf("\n\n");
-	}
-
-#endif
-
-#ifndef TEST
-	scuChromosome *dev_test_chromosomes = (scuChromosome *)malloc(sizeof(scuChromosome) * NUMOF_CHROMOSOMES);
-	double * gene = (double *)malloc(sizeof(double) * NUMOF_JOBS * 2);
-	cudaMemcpy(dev_test_chromosomes, dev_chromosomes, sizeof(scuChromosome) * NUMOF_CHROMOSOMES, cudaMemcpyDeviceToHost);
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
-		printf("Chromosome %d : %d\n", dev_test_chromosomes[i].number, dev_test_chromosomes[i].size);
-		cudaMemcpy(gene, dev_test_chromosomes[i].dev_genes, sizeof(double)*NUMOF_JOBS*2, cudaMemcpyDeviceToHost);
-		for(unsigned int j = 0; j < NUMOF_JOBS * 2; ++j){
-			printf("%.8f\n", gene[j]);
-		}
-		printf("\n\n");
-	}
-
-#endif
-
-
 	dim3 job_initialize_kernel_thread_dim(16, 16);
-	dim3 job_initialize_kernel_block_dim(NUMOF_CHROMOSOMES * NUMOF_JOBS / job_initialize_kernel_thread_dim.x, NUMOF_CHROMOSOMES*NUMOF_JOBS / job_initialize_kernel_thread_dim.y);	
-	
+	dim3 job_initialize_kernel_block_dim(60, 60);
 	dim3 machine_kernel_thread_dim(16, 16);
-	dim3 machine_kernel_block_dim(NUMOF_CHROMOSOMES * NUMOF_MACHINES / machine_kernel_thread_dim.x, NUMOF_CHROMOSOMES * NUMOF_MACHINES / machine_kernel_thread_dim.y);
+	dim3 machine_kernel_block_dim(60, 60);
 
-	jobs_initialize_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, DEV_CAN_RUN_TOOLS, DEV_PROCESS_TIME, NUMOF_JOBS, NUMOF_CHROMOSOMES);
-	jobs_binding_chromosome_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, DEV_CHROMOSOMES_2D_ARRAY_POINTER, NUMOF_JOBS, NUMOF_CHROMOSOMES);
-	machine_selection_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, NUMOF_JOBS, NUMOF_CHROMOSOMES);
-	machine_selection_part2_kernel<<<machine_kernel_block_dim, machine_kernel_block_dim>>>(dev_jobs, dev_machines, NUMOF_JOBS, NUMOF_MACHINES, NUMOF_CHROMOSOMES);
-	machine_set_job_list_id<<<machine_kernel_block_dim, machine_kernel_thread_dim>>>(dev_machines, NUMOF_MACHINES, NUMOF_CHROMOSOMES);
+	jobs_initialize_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, DEV_CAN_RUN_TOOLS, DEV_PROCESS_TIME, NUMOF_JOBS, MAX_NUMOF_CHROMOSOMES);
+	jobs_binding_chromosome_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, DEV_CHROMOSOMES_2D_ARRAY_POINTER, NUMOF_JOBS, MAX_NUMOF_CHROMOSOMES);
 	
+	clock_t start = clock();
+	unsigned int START_INDEX;
+	unsigned int CROSOVR_RATE = NUMOF_CHROMOSOMES * 0.8;
+	unsigned int MUT_RATE = NUMOF_CHROMOSOMES * 0.2;
+	unsigned int * parent1, *parent2, *dev_parent1, *dev_parent2;
+	unsigned int * cutPoints,*crossover_range, *dev_cutPoints, *dev_crossover_range;
+	initialize_crossover_vectors(&parent1, &parent2, &cutPoints, &crossover_range, CROSOVR_RATE);
+	initialize_dev_crossover_vectors(&parent1, &parent2, &cutPoints, &dev_crossover_range, CROSOVR_RATE);
+	size_t cpySize = sizeof(unsigned int)*CROSOVR_RATE;
+	for(unsigned int i = 0; i < 1000; ++i){
+		// generate crossover data
+		// copy to GPU
+		// generate_crossover_vectors(parent1, parent2, cutPoints, crossover_range, NUMOF_CHROMOSOMES, CROSOVR_RATE);
+		// 
+		// cudaMemcpy(dev_parent1, parent1, cpySize, cudaMemcpyHostToDevice);
+		// cudaMemcpy(dev_parent2, parent2, cpySize, cudaMemcpyHostToDevice);
+		// cudaMemcpy(dev_cutPoints, cutPoints, cpySize, cudaMemcpyHostToDevice);
+		// cudaMemcpy(dev_crossover_range, crossover_range, cpySize, cudaMemcpyHostToDevice);
+	
+		machine_selection_kernel<<<job_initialize_kernel_block_dim, job_initialize_kernel_thread_dim>>>(dev_jobs, NUMOF_JOBS, MAX_NUMOF_CHROMOSOMES);
+		machine_selection_part2_kernel<<<machine_kernel_block_dim, machine_kernel_thread_dim>>>(dev_jobs, dev_machines,	NUMOF_JOBS, NUMOF_MACHINES, MAX_NUMOF_CHROMOSOMES);
+		machine_sort_the_jobs<<<machine_kernel_block_dim, machine_kernel_thread_dim>>>(dev_machines, NUMOF_MACHINES, MAX_NUMOF_CHROMOSOMES);
+		machine_set_job_list_id<<<machine_kernel_block_dim, machine_kernel_thread_dim>>>(dev_machines, NUMOF_MACHINES, MAX_NUMOF_CHROMOSOMES);
+	}
+	clock_t end = clock();
 		
-#ifndef TEST	
 	unsigned int * test_can_run_tools;
 	size_t can_run_tool_size;
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
+	scuJob * dev_row_pointer;
+	scuJob * dev_test_row_jobs = (scuJob *)malloc(sizeof(scuJob)*NUMOF_JOBS);
+	can_run_tool_size = NUMOF_MACHINES * sizeof(unsigned int);
+	test_can_run_tools = (unsigned int *)malloc(can_run_tool_size);
+
+#ifdef TEST	 // test machine selection part 1
+		for(unsigned int i = 0; i < MAX_NUMOF_CHROMOSOMES; ++i){
 		cudaMemcpy(&dev_row_pointer, &dev_jobs[i], sizeof(scuJob*), cudaMemcpyDeviceToHost);
 		cudaMemcpy(dev_test_row_jobs, dev_row_pointer, sizeof(scuJob)*NUMOF_JOBS, cudaMemcpyDeviceToHost);
 		for(unsigned int j =0; j < NUMOF_JOBS; ++j){
 			cout<<dev_test_row_jobs[j].number << " : " <<dev_test_row_jobs[j].splitValue<<" ";
 			can_run_tool_size = dev_test_row_jobs[j].sizeof_can_run_tools * sizeof(unsigned int);
-			// printf("size = %zu ", can_run_tool_size);
-			test_can_run_tools = (unsigned int *)malloc(can_run_tool_size);
+			printf("size = %zu ", can_run_tool_size);
 			cudaMemcpy(test_can_run_tools, dev_test_row_jobs[j].can_run_tools, can_run_tool_size, cudaMemcpyDeviceToHost);
 			for(unsigned int k = 0; k < dev_test_row_jobs[j].sizeof_can_run_tools; ++k){
 				cout<<test_can_run_tools[k]<<" ";	
@@ -459,12 +596,15 @@ int main(int argc, const char * argv[]){
 	}
 #endif
 
-#ifdef TEST 
+
+#ifdef TEST
 	double os_gene;
 	double ms_gene;
-	size_t can_run_tool_size;
-	unsigned int * test_can_run_tools;
-	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
+	// size_t can_run_tool_size;
+	// unsigned int * test_can_run_tools;
+	// can_run_tool_size = NUMOF_MACHINES* sizeof(unsigned int);
+	// test_can_run_tools = (unsigned int *)malloc(can_run_tool_size);
+	for(unsigned int i = 0; i < MAX_NUMOF_CHROMOSOMES; ++i){
 		cudaMemcpy(&dev_row_pointer, &dev_jobs[i], sizeof(scuJob*), cudaMemcpyDeviceToHost);
 		cudaMemcpy(dev_test_row_jobs, dev_row_pointer, sizeof(scuJob)*NUMOF_JOBS, cudaMemcpyDeviceToHost);
 		for(unsigned int j =0; j < NUMOF_JOBS; ++j){
@@ -474,8 +614,7 @@ int main(int argc, const char * argv[]){
 			cout<<dev_test_row_jobs[j].number << " : "<<dev_test_row_jobs[j].splitValue<<endl;
 			printf("ms : %.3f, os : %.3f\n", ms_gene, os_gene);
 			can_run_tool_size = dev_test_row_jobs[j].sizeof_can_run_tools * sizeof(unsigned int);
-			// printf("size = %zu ", can_run_tool_size);
-			test_can_run_tools = (unsigned int *)malloc(can_run_tool_size);
+			printf("size = %zu ", can_run_tool_size);
 			cudaMemcpy(test_can_run_tools, dev_test_row_jobs[j].can_run_tools, can_run_tool_size, cudaMemcpyDeviceToHost);
 			for(unsigned int k = 0; k < dev_test_row_jobs[j].sizeof_can_run_tools; ++k){
 				cout<<test_can_run_tools[k]<<" ";	
@@ -486,10 +625,13 @@ int main(int argc, const char * argv[]){
 	}
 #endif
 
+	//return 0;
 
-#ifdef TEST
+
+// #ifdef TEST
 	// scuMachine * dev_machine_row_pointer;
 	// scuMachine * dev_machines_row = (scuMachine*)malloc(sizeof(scuMachine) * NUMOF_MACHINES);
+	scuMachine * dev_machine_row_pointer;
 	dev_machines_row = (scuMachine*)malloc(sizeof(scuMachine) * NUMOF_MACHINES);
 	unsigned int * job_lists;
 	for(unsigned int i = 0; i < NUMOF_CHROMOSOMES; ++i){
@@ -506,7 +648,9 @@ int main(int argc, const char * argv[]){
 		}
 		printf("\n\n");
 	}	
-#endif
+// #endif
+
+	printf("Elapsed Time = %.3f", (double)(end - start) / (double)(CLOCKS_PER_SEC));
 
 	return 0;
 }

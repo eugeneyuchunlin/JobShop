@@ -18,10 +18,8 @@ struct scuJob{
 	unsigned int number; // clone
 	unsigned int sizeof_can_run_tools; // clone
 	unsigned int capacityof_can_run_tools; // clone
-
 	unsigned int sizeof_process_time; // clone
 	unsigned int capacityof_process_time; // clone
-
 	std::string job_id;
 };
 

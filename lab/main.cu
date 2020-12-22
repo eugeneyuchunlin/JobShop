@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <iostream>
 #include <cuda.h>
+#include <curand.h>
+#include <curand_kernel.h>
 #include <cuda_runtime.h>
 
 #define ROW 5000
@@ -26,6 +28,22 @@ __global__ void test(int ** data){
 __global__ void test2(int N){
 	int index = threadIdx.x;
 	printf("CUDA said: hello world\n");
+}
+
+__global__ void setup_kernel(curandState * state){
+	int idx = threadIdx.x + blockDim.x * blockIdx.x;
+	curand_init(1234, idx, 0, &state[idx]);
+}
+
+__global__ void testrand(curandState * state){
+	int id = blockIdx.x * blockDim.x + threadIdx.x;
+	curandState localState = state[id];
+	unsigned int num = ceilf(curand_uniform(&localState) * 30) - 1;
+	printf("rand = %u\n", num);
+}
+
+__global__ void testmemcpy(double * dest, double * src, unsigned int length){
+	memcpy(dest + 5, src, sizeof(double)*(length - 5));
 }
 
 
@@ -54,8 +72,22 @@ int main(){
 	}
 
 	dim3 threadsPerBlock(10, 10);
-	test<<<1, threadsPerBlock>>>(dev_array);
-
+	curandState * d_state;
+	cudaMalloc(&d_state, sizeof(curandState));
+	setup_kernel<<<1, threadsPerBlock>>>(d_state);
+	// testrand<<<1, threadsPerBlock>>>(d_state);
+	double testArray[10];
+	double resultArray[10];
+	double * dev_test_array_src;
+	double * dev_test_array_dest;
+	cudaMalloc((void**)&dev_test_array_src, sizeof(double)*10);
+	cudaMalloc((void**)&dev_test_array_dest, sizeof(double)*10);
+	for(double i = 0; i < 10; i+=1){
+		testArray[(int)i] = i / 10.0;
+	}
+	cudaMemcpy(dev_test_array_src, testArray, sizeof(double)*10, cudaMemcpyHostToDevice);
+	testmemcpy<<<1, 1>>>(dev_test_array_dest, dev_test_array_src, 10);
+	cudaMemcpy(resultArray, dev_test_array_dest, sizeof(double)*10, cudaMemcpyDeviceToHost);
 
 	int * temp;
 	for(int i = 0; i < 10; ++i){

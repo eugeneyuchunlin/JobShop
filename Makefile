@@ -285,6 +285,33 @@ job_base.cpp.s:
 	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/job_base.cpp.s
 .PHONY : job_base.cpp.s
 
+unit_test.o: unit_test.cpp.o
+
+.PHONY : unit_test.o
+
+# target to build an object file
+unit_test.cpp.o:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/unit_test.cpp.o
+.PHONY : unit_test.cpp.o
+
+unit_test.i: unit_test.cpp.i
+
+.PHONY : unit_test.i
+
+# target to preprocess a source file
+unit_test.cpp.i:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/unit_test.cpp.i
+.PHONY : unit_test.cpp.i
+
+unit_test.s: unit_test.cpp.s
+
+.PHONY : unit_test.s
+
+# target to generate assembly for a file
+unit_test.cpp.s:
+	$(MAKE) -f CMakeFiles/Main.dir/build.make CMakeFiles/Main.dir/unit_test.cpp.s
+.PHONY : unit_test.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -312,6 +339,9 @@ help:
 	@echo "... job_base.o"
 	@echo "... job_base.i"
 	@echo "... job_base.s"
+	@echo "... unit_test.o"
+	@echo "... unit_test.i"
+	@echo "... unit_test.s"
 .PHONY : help
 
 
