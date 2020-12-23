@@ -30,7 +30,7 @@ scuJob * createScuJob(
 				 j = 0;
 	do{
 		temp = can_run_tools.substr(startPos, 6);
-		job->can_run_tools[i] = std::stoi(&temp[3]);
+		job->can_run_tools[i] = std::stoi(&temp[3]) - 1;
 		job->process_time[j] = (double)eqp_recipe[recipe][temp] * qty;
 		++i;
 		++j;

@@ -56,7 +56,7 @@ bool test_job_successfully_copy(scuJob *** jobs, scuJob ** dev_jobs, unsigned in
 		cudaMemcpy(&dev_row_pointer, &dev_jobs[i], sizeof(scuJob *), cudaMemcpyDeviceToHost);
 		cudaMemcpy(dev_test_row_jobs, dev_row_pointer, sizeof(scuJob) * NUMOF_JOBS, cudaMemcpyDeviceToHost);
 		for(unsigned int j = 0; j < NUMOF_JOBS; ++j){
-			printf("%d, %d\n",jobs[i][j]->number, dev_test_row_jobs[j].number);
+			// printf("%d, %d\n",jobs[i][j]->number, dev_test_row_jobs[j].number);
 			test_jobs_are_the_same(jobs[i][j], &dev_test_row_jobs[j]);
 		}
 	}
