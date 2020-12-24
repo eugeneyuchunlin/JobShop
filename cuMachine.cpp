@@ -7,6 +7,7 @@ scuMachine *create_machine(unsigned int number, std::vector<std::string> status,
 	machine->total_time = 0;
 	machine->number = number;
 	machine->job_size = 9;
+	// machine->dummyJob.end_time = machine->recover_time;
 	// machine->capacity_of_job = 20;
 	scuJob ** job_lists;
 	cudaMalloc((void**)&job_lists, sizeof(scuJob *) * NUMOF_JOB);

@@ -23,6 +23,27 @@ bool test_can_run_tools_successfully_copy(unsigned int ** CAN_RUN_TOOLS, unsigne
 	return true;
 }
 
+bool test_setupt_time_successfully_copied(
+		unsigned int ** HOST_SETUP_TIME,
+		unsigned int ** DEV_SETUP_TIME,
+		unsigned int NUMOF_JOBS
+){
+	unsigned int *dev_test_unit_temp;
+	unsigned int *uint_array;
+	size_t size;
+	for(unsigned int i = 0; i < NUMOF_JOBS; ++i){
+		size = sizeof(unsigned int)*NUMOF_JOBS;
+		uint_array = (unsigned int *)malloc(size);
+		cudaMemcpy(&dev_test_unit_temp, &(DEV_SETUP_TIME[i]), sizeof(unsigned int *), cudaMemcpyDeviceToHost);
+		cudaMemcpy(uint_array, dev_test_unit_temp,size, cudaMemcpyDeviceToHost);
+		for(unsigned int j = 0; j < NUMOF_JOBS; ++j){
+			assert(uint_array[j] == HOST_SETUP_TIME[i][j]);
+		}
+	}
+
+	return true;
+}
+
 
 bool test_process_time_successfully_copy(double ** PROCESS_TIME, double ** DEV_PROCESS_TIME, scuJob ***jobs, unsigned int NUMOF_JOBS){
 	double * dev_test_double_temp;
@@ -42,10 +63,13 @@ bool test_process_time_successfully_copy(double ** PROCESS_TIME, double ** DEV_P
 }
 
 
+
+
 bool test_jobs_are_the_same(scuJob * job1, scuJob * job2){
 	assert(job1->number == job2->number);
 	assert(job1->sizeof_can_run_tools == job2->sizeof_can_run_tools);
 	assert(job1->sizeof_process_time == job2->sizeof_process_time);
+	assert(job1->arrive_t == job2->arrive_t);
 	return true;	
 }
 
@@ -102,6 +126,8 @@ bool test_chromosome_initialize(scuChromosome * dev_chromosomes, unsigned int NU
 		}
 		printf("\n\n");
 	}
+	free(dev_test_chromosomes);
+	free(gene);
 	return true;
 }
 

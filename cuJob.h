@@ -5,6 +5,8 @@
 #include <vector>
 #include "job_base.h"
 
+struct scuJob;
+
 struct scuJob{
 	double * ms_gene;
 	double * os_gene;
@@ -12,6 +14,7 @@ struct scuJob{
 	double start_time;
 	double end_time;
 	double splitValue;
+	double arrive_t;
 	unsigned int machine_id;
 	double machine_process_time;
 	unsigned int * can_run_tools; // shared clone
@@ -20,6 +23,8 @@ struct scuJob{
 	unsigned int capacityof_can_run_tools; // clone
 	unsigned int sizeof_process_time; // clone
 	unsigned int capacityof_process_time; // clone
+	scuJob * last;
+	scuJob * next;
 	std::string job_id;
 };
 

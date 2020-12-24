@@ -11,6 +11,7 @@ scuJob * createScuJob(
 	std::string recipe = row["RECIPE"];
 	std::string can_run_tools = row["CANRUN_TOOL"];
 	double qty = std::stof(row["QTY"]) / 25.0;
+	job->arrive_t = std::stof(row["ARRIV_T"]);	
 	job->number = number;
 	std::string lotId = row["LOT_ID"];	
 	// job->job_id = row["LOT_ID"];
@@ -59,6 +60,7 @@ struct scuJob * shared_clone(scuJob * src){
 	njob->sizeof_process_time = src->sizeof_process_time;
 	njob->start_time = njob->end_time = 0;
 	njob->splitValue = 0;
+	njob->arrive_t = src->arrive_t;
 	return njob;
 }
 

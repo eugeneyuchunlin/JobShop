@@ -142,4 +142,10 @@ void test_copying_genes(
 		unsigned int NUMOF_CHROMOSOMES
 );
 
+bool test_setupt_time_successfully_copied(
+		unsigned int ** HOST_SETUP_TIME,
+		unsigned int ** DEV_SETUP_TIME,
+		unsigned int NUMOF_JOBS
+);
+
 #endif

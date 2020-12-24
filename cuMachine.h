@@ -16,6 +16,7 @@ struct scuMachine{
 	unsigned int job_size;
 	unsigned int *job_id_list;
 	struct scuJob ** job_lists;	
+	struct scuJob *dummyJob;
 };
 
 scuMachine *create_machine(unsigned int, std::vector<std::string>, unsigned int NUMOF_JOB);

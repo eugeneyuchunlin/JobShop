@@ -15,6 +15,7 @@ struct scuChromosome{
 	double * machineSelectionGenes; 
 	double * arrangementGenes;
 	unsigned int size;
+	double fitnessValue;
 };
 
 scuChromosome * createScuChromosome(
